@@ -271,44 +271,37 @@ class OtpVerificationScreen extends StatelessWidget {
 
             // Fetch user details to check if the profile exists
             final userDetailsResponse = await http.get(
-              Uri.parse('http://192.168.1.76:8000/auth/user-details/'),
+              Uri.parse('http://192.168.1.76:8000/auth/my-profile/'),
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer $accessToken', // Include the access token for authentication
+                'Authorization': 'Bearer $accessToken',
               },
             );
 
             if (userDetailsResponse.statusCode == 200) {
-              // Assuming the response contains user details
-              final userDetails = json.decode(userDetailsResponse.body);
-              
-              // Check if user details are present
-              bool profileExists = userDetails['user'] != null; // If user object is not null, profile exists
-
+              // Profile exists
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Login Successful!')),
               );
-
-              // Navigate based on profile existence
-              if (profileExists) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HomePage(
-                      accessToken: accessToken,
-                      refreshToken: refreshToken,
-                    ),
+              
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomePage(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
                   ),
-                );
-              } else {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => CreateProfileScreen(value: value)), // Navigate to CreateProfileScreen if not
-                );
-              }
+                ),
+              );
+            } else if (userDetailsResponse.statusCode == 404) {
+              // Profile doesn't exist
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => CreateProfileScreen(value: value)),
+              );
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Error fetching user details: ${userDetailsResponse.body}')),
+                SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
               );
             }
           }

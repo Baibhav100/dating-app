@@ -227,428 +227,174 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent, // Set transparent to see SafeArea color
-      body: SafeArea(
-        child: Container(
-          color: const Color.fromARGB(255, 255, 255, 255), // Set background color here
-          width: double.infinity, // Ensure full width
-          height: MediaQuery.of(context).size.height, // Ensure full height
-          padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Show previous arrow only if we're not on the first step
-              if (currentStep > 0)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back),
-                      onPressed: () {
-                        setState(() {
-                          currentStep--; // Move back to the previous section
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              Expanded(
-                child: currentStep == 0
-                    ? _buildPersonalInfoSection()
-                    : currentStep == 1
-                        ? _buildInterestSection()
-                        : _buildMediaSection(),
-              ),
-              _buildNavigationButtons(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPersonalInfoSection() {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0), // Adds padding around the content
+      body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10.0),
-                child: Text(
-                  'Personal Information',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 29,
-                    fontWeight: FontWeight.bold,
-                    color: const Color.fromARGB(221, 207, 59, 116),
+            // Cover Image Section
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.bottomCenter,
+              children: [
+                // Cover Image
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    image: coverPicture != null
+                        ? DecorationImage(
+                            image: FileImage(coverPicture!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
+                  child: coverPicture == null
+                      ? Center(
+                          child: IconButton(
+                            icon: Icon(Icons.add_a_photo, size: 30),
+                            onPressed: () => pickImage(
+                              ImageSource.gallery,
+                              (image) => setState(() => coverPicture = image),
+                            ),
+                          ),
+                        )
+                      : null,
                 ),
-              ),
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5.0),
-                child: Text(
-                  'Provide your personal details to help us personalize your profile and enhance your experience on our platform.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[700],
-                  ),
-                ),
-              ),
-            ),
-            _buildTextField(usernameController, 'Username', true, isEditable: false),
-            _buildTextField(phoneNumberController, 'Phone Number', true),
-            _buildTextField(nameController, 'Name', true),
-            _buildTextField(dobController, 'Date of Birth (YYYY-MM-DD)', true, isDateField: true),
-            _buildDropdown('Gender', selectedGender, ['Male', 'Female', 'Other']),
-            _buildTextField(bioController, 'Bio', false),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Interests Section
-  Widget _buildInterestSection() {
-    return SingleChildScrollView(  // Allow scrolling if content overflows
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Justifies the space between the children
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10.0),
-              child: Text(
-                'Your Interests', // ✨ More engaging heading
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 29, // Bigger size for importance
-                  fontWeight: FontWeight.bold,
-                  color: const Color.fromARGB(221, 207, 59, 116),
-                ),
-              ),
-            ),
-          ),
-
-          // Paragraph - Centered
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5.0),
-              child: Text(
-                'Tell us more about your interests so we can personalize '
-                'your experience and show you relevant content.',
-                textAlign: TextAlign.justify, // Justifies the text
-                style: TextStyle(
-                  fontSize: 16, // Readable size
-                  color: Colors.grey[700], // Softer text color
-                ),
-              ),
-            ),
-          ),
-          SizedBox(height: 10),
-          interests.isEmpty
-              ? Text('No interests found')
-              : Wrap(
-                  spacing: 8.0,
-                  runSpacing: 4.0,
-                  children: interests.map((interest) {
-                    final id = interest['id'] as int;
-                    final name = interest['name'] as String;
-                    bool isSelected = selectedInterests.contains(id);
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (isSelected) {
-                            selectedInterests.remove(id);
-                          } else {
-                            selectedInterests.add(id);
-                          }
-                        });
-                      },
-                      child: Chip(
-                        label: Text(name),
-                        backgroundColor: isSelected
-                            ? const Color.fromARGB(255, 177, 33, 93)
-                            : Color.fromARGB(255, 236, 236, 236),
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : const Color.fromARGB(255, 172, 62, 95),
+                // Profile Picture
+                Positioned(
+                  bottom: -50,
+                  child: GestureDetector(
+                    onTap: () => pickImage(
+                      ImageSource.gallery,
+                      (image) => setState(() => profilePicture = image),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 4,
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-        ],
-      ),
-    );
-  }
-
-  // Media Section
-  Widget _buildMediaSection() {
-    return Column(
-      children: [
-        // Eye-catching heading
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20.0),
-          child: Center(
-            child: Text(
-              'Media Uploads', // The heading
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 32, // Larger font size for more emphasis
-                fontWeight: FontWeight.bold,
-                color: Color.fromARGB(221, 207, 59, 116), // Vibrant color
-              ),
-            ),
-          ),
-        ),
-        
-        // Attractive paragraph
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-          child: Center(
-            child: Text(
-              'Upload your profile and cover pictures to make your profile stand out. You can also upload a video to introduce yourself. Choose media that best represents you and your personality!',
-              textAlign: TextAlign.center, // Centers text
-              style: TextStyle(
-                fontSize: 16, // Readable size
-                color: Colors.grey[700], // Softer text color for better readability
-              ),
-            ),
-          ),
-        ),
-
-        // Image and video upload components
-        _buildImageUploadRow('Profile Picture', profilePicture, (image) {
-          setState(() {
-            profilePicture = image;
-          });
-        }),
-        _buildImageUploadRow('Cover Picture', coverPicture, (image) {
-          setState(() {
-            coverPicture = image;
-          });
-        }),
-        _buildVideoUploadRow(),
-      ],
-    );
-  }
-
-  // Next/Back Buttons
-  Widget _buildNavigationDots() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (index) {
-        return Container(
-          margin: EdgeInsets.symmetric(horizontal: 4.0),
-          height: 10.0,
-          width: 10.0,
-          decoration: BoxDecoration(
-            color: currentStep == index ? Colors.pink : Colors.grey,
-            shape: BoxShape.circle,
-          ),
-        );
-      }),
-    );
-  }
-
-  // Update the navigation buttons section.
-  Widget _buildNavigationButtons() {
-    return Stack(
-      children: [
-        // Center the dots in the column
-        Align(
-          alignment: Alignment.center,
-          child: _buildNavigationDots(),
-        ),
-        // Align the button at the bottom right
-        Align(
-          alignment: Alignment.bottomRight,
-          child: currentStep < 2
-              ? OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      currentStep++;
-                    });
-                  },
-                  child: Text('Next'),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: const Color.fromARGB(221, 207, 59, 116)), // Outline color
-                  ),
-                )
-              : OutlinedButton(
-                  onPressed: () {
-                    // Ensure all data is validated and submitted
-                      submitForm(); // Call submitForm if validation passes
-                  },
-                  child: Text('Submit'),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: const Color.fromARGB(221, 207, 59, 116)), // Outline color
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  // Helper method to build text input fields
-  Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
-    DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1900), // Earliest selectable date
-      lastDate: DateTime.now(), // Latest selectable date
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            primaryColor: const Color.fromARGB(221, 207, 59, 116), // Header background color
-            colorScheme: ColorScheme.light(
-              primary: const Color.fromARGB(221, 207, 59, 116), // Selected date color
-            ),
-            buttonTheme: ButtonThemeData(
-              textTheme: ButtonTextTheme.primary, // Button text color
-            ),
-          ),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-    );
-
-    // Update the text field with the selected date
-    if (pickedDate != null) {
-      controller.text = "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-    }
-  }
-
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    bool isRequired, {
-    bool isEditable = true,
-    bool isDateField = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: TextFormField(
-        controller: controller,
-        readOnly: isDateField || !isEditable,
-        onTap: isDateField
-            ? () async {
-                await _selectDate(context, controller);
-              }
-            : null,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(
-            color: Colors.grey[700], // Light label color
-          ),
-          filled: true,
-          fillColor: Colors.grey[200], // Light background color
-          contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-          border: OutlineInputBorder(
-            borderSide: BorderSide.none, // Removes the border
-            borderRadius: BorderRadius.circular(12.0), // Rounded corners
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide.none, // No outline on focus
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderSide: BorderSide.none, // Removes error border
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-          disabledBorder: OutlineInputBorder(
-            borderSide: BorderSide.none, // Removes disabled border
-            borderRadius: BorderRadius.circular(12.0),
-          ),
-        ),
-        validator: isRequired
-            ? (value) {
-                if (value == null || value.isEmpty) {
-                  return '$label is required';
-                }
-                return null;
-              }
-            : null,
-      ),
-    );
-  }
-
-  // Helper method to build dropdown menu
-  Widget _buildDropdown(String label, String? selectedValue, List<String> options) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(labelText: label),
-        value: selectedValue,
-        onChanged: (newValue) {
-          setState(() {
-            selectedGender = newValue;
-          });
-        },
-        items: options.map((value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  // Helper method to build image upload row
-  Widget _buildImageUploadRow(String label, File? image, Function(File) onImagePicked) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          image == null
-              ? DottedBorder(
-                  borderType: BorderType.RRect,
-                  radius: Radius.circular(8),
-                  padding: EdgeInsets.all(8),
-                  color: Colors.grey,
-                  strokeWidth: 2,
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    alignment: Alignment.center,
-                    child: IconButton(
-                      icon: Icon(Icons.add, color: Colors.grey),
-                      onPressed: () => pickImage(ImageSource.gallery, onImagePicked),
+                      child: CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey[300],
+                        backgroundImage: profilePicture != null
+                            ? FileImage(profilePicture!)
+                            : null,
+                        child: profilePicture == null
+                            ? Icon(Icons.add_a_photo, size: 30)
+                            : null,
+                      ),
                     ),
                   ),
-                )
-              : Image.file(image, width: 50, height: 50, fit: BoxFit.cover),
-          IconButton(
-            icon: Icon(Icons.upload_file),
-            onPressed: () => pickImage(ImageSource.gallery, onImagePicked),
-          ),
-          Text(label),
-        ],
-      ),
-    );
-  }
+                ),
+              ],
+            ),
+            
+            SizedBox(height: 60), // Space for profile picture overflow
+            
+            // Name and Bio Section
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  // Name Field
+                  TextField(
+                    controller: nameController,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Your Name',
+                      border: InputBorder.none,
+                    ),
+                  ),
+                  
+                  SizedBox(height: 10),
+                  
+                  // Bio Field
+                  TextField(
+                    controller: bioController,
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Write something about yourself...',
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            
+            // Interests Section
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Interests',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: interests.map((interest) {
+                      final id = interest['id'] as int;
+                      final name = interest['name'] as String;
+                      bool isSelected = selectedInterests.contains(id);
 
-  // Helper method to build video upload row
-  Widget _buildVideoUploadRow() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          videoProfile == null
-              ? Icon(Icons.video_library, size: 50)
-              : Icon(Icons.check_circle, color: Colors.green, size: 50),
-          IconButton(
-            icon: Icon(Icons.upload_file),
-            onPressed: () => pickVideo(ImageSource.gallery),
-          ),
-          Text('Video Profile'),
-        ],
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (isSelected) {
+                              selectedInterests.remove(id);
+                            } else {
+                              selectedInterests.add(id);
+                            }
+                          });
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Theme.of(context).primaryColor
+                                : Colors.grey[200],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            name,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            
+          
+          ],
+        ),
       ),
     );
   }
