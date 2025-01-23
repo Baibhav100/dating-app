@@ -11,6 +11,7 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
+
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController inputController = TextEditingController();
   bool isEmailLogin = true; // To toggle between email and phone login
@@ -371,3 +372,4 @@ class OtpVerificationScreen extends StatelessWidget {
     );
   }
 }
+

@@ -21,6 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+ int _currentUserId=0;
   bool _isLoading = false;
   String? _error;
   
@@ -152,6 +153,7 @@ class _HomePageState extends State<HomePage> {
           });
         });
       });
+       fetchCurrentUserId();
     } else {
       // Fallback to loading from SharedPreferences
       _loadTokens().then((_) {
@@ -162,6 +164,7 @@ class _HomePageState extends State<HomePage> {
             });
           });
         });
+         fetchCurrentUserId();
       });
     }
   }
@@ -638,227 +641,331 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+
+  Future<void> fetchCurrentUserId() async {
+    final url = Uri.parse('http://192.168.1.76:8000/auth/user-details/');
+    try {
+      // Load tokens
+      await _loadTokens(); // This will load accessToken and refreshToken
+
+      if (accessToken != null) {
+        // Include the access token in the Authorization header
+        final response = await http.get(
+          url,
+          headers: {
+            'Authorization': 'Bearer $accessToken',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          setState(() {
+            _currentUserId = data['user']['id']; // Extract the user ID
+          });
+          print('Logged-in User ID: $_currentUserId');
+        } else {
+          print('Failed to fetch user details: ${response.statusCode}');
+        }
+      } else {
+        print('Access token is null, unable to fetch user details.');
+      }
+    } catch (e) {
+      print('Error fetching user details: $e');
+    }
+  }
+
+
+// Function to send swipe action to the backend
+
+Future<void> handleSwipe({
+  required int swipedUserId,
+  required int swipedOnId,
+  required String swipeType,
+}) async {
+  // Validate input parameters
+  if (swipedUserId <= 0) {
+    print('Invalid swiper user ID');
+    return;
+  }
+
+  const url = 'http://192.168.1.76:8000/auth/swipe/';
+
+  try {
+    await _loadTokens();
+
+    if (accessToken == null) {
+      print('Error: Access token is null.');
+      return;
+    }
+
+    final headers = {
+      'Authorization': 'Bearer $accessToken',
+      'Content-Type': 'application/json',
+    };
+
+    final body = jsonEncode({
+      'swiped_by': swipedUserId,
+      'swiped_user_id': swipedOnId,
+      'swipe_type': swipeType,
+    });
+
+    // Print the body to console
+    print('Request Body: $body');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: headers,
+      body: body,
+    );
+
+    if (response.statusCode == 201) {
+      print('Swipe action recorded successfully for ID: $swipedOnId');
+    } else {
+      print('Swipe action failed. Status: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error sending swipe action: $e');
+  }
+}
+
+
+// Helper function for building action buttons
+Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed) {
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      shape: BoxShape.circle,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.3),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: IconButton(
+      icon: Icon(icon, color: color),
+      onPressed: onPressed,
+      iconSize: 30,
+    ),
+  );
+}
+
+
+// Call fetchCurrentUserId on the widget's initState
   // Update the Suggested Matches section
-  Container _buildSuggestedMatches() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Suggested Matches',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 400,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: List.generate(_matches.length, (index) {
-                final match = _matches[index]['profile'];
-                return Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Dismissible(
-                    key: Key(match['id'].toString()),
-                    onDismissed: (direction) {
-                      if (direction == DismissDirection.endToStart) {
-                        // Swiped left - Reject
-                        print('Rejected: ${match['name']}');
-                      } else if (direction == DismissDirection.startToEnd) {
-                        // Swiped right - Like
-                        print('Liked: ${match['name']}');
+Container _buildSuggestedMatches() {
+  return Container(
+    padding: const EdgeInsets.all(16.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Suggested Matches',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 400,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: List.generate(_matches.length, (index) {
+              final match = _matches[index]; // Access the top-level match object
+              final profile = match['profile']; // Access the profile details
+              final userId = match['user_id']; // Extract user_id directly
+
+              return Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Dismissible(
+                  key: Key(userId.toString()), // Use user_id as the key
+                  onDismissed: (direction) async {
+                    if (_currentUserId != 0) {
+                      // Determine swipe direction
+                      final isLiked = direction == DismissDirection.startToEnd;
+                      final swipeType = isLiked ? 'like' : 'dislike';
+
+                      try {
+                        // Pass the correct user_id to handleSwipe
+                        await handleSwipe(
+                          swipeType: swipeType,
+                          swipedUserId: _currentUserId,
+                          swipedOnId: userId, // Use the extracted user_id
+                        );
+
+                        // Remove the swiped profile from UI
+                        setState(() {
+                          _matches.removeAt(index);
+                        });
+
+                        // Display feedback
+                        print('$swipeType: ${profile['name']}');
+                      } catch (error) {
+                        // Handle errors
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${error.toString()}')),
+                        );
                       }
-                      setState(() {
-                        _matches.removeAt(index);
-                      });
-                    },
-                    // Add custom background colors and icons for swipe directions
-                    background: Container( // Right swipe (like)
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: EdgeInsets.only(left: 20),
-                          child: Icon(Icons.favorite, color: Colors.green, size: 40),
-                        ),
-                      ),
+                    } else {
+                      print('Current user ID is not available');
+                    }
+                  },
+                  background: Container(
+                    // Right swipe (like)
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    secondaryBackground: Container( // Left swipe (reject)
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: EdgeInsets.only(right: 20),
-                          child: Icon(Icons.close, color: Colors.red, size: 40),
-                        ),
-                      ),
-                    ),
-                    child: GestureDetector(
-                      child: TweenAnimationBuilder(
-                        tween: Tween<double>(begin: 0, end: 1),
-                        duration: const Duration(milliseconds: 300),
-                        builder: (context, double value, child) {
-                          return Transform.scale(
-                            scale: value,
-                            child: child,
-                          );
-                        },
-                        child: Container(
-                          height: 400,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // Profile Image
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(15),
-                                child: Image.network(
-                                  'http://192.168.1.76:8000${match['profile_picture']}',
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              // Gradient overlay for better text visibility
-                              Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(15),
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [
-                                      Colors.transparent,
-                                      Colors.black.withOpacity(0.7),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              // User Info
-                              Positioned(
-                                bottom: 70,
-                                left: 16,
-                                right: 16,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      match['name'],
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      match['bio'] ?? 'No bio available',
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.9),
-                                        fontSize: 16,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Action Buttons
-                              Positioned(
-                                bottom: 16,
-                                left: 16,
-                                right: 16,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    _buildActionButton(
-                                      Icons.close,
-                                      Colors.red,
-                                      () {
-                                        // Reject animation and action
-                                        setState(() {
-                                          _matches.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                    _buildActionButton(
-                                      Icons.favorite,
-                                      Colors.green,
-                                      () {
-                                        // Like animation and action
-                                        setState(() {
-                                          _matches.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    child: const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 20),
+                        child: Icon(Icons.favorite, color: Colors.green, size: 40),
                       ),
                     ),
                   ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, Color color, VoidCallback onTap) {
-    return TweenAnimationBuilder(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 300),
-      builder: (context, double value, child) {
-        return Transform.scale(
-          scale: value,
-          child: child,
-        );
-      },
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 30,
+                  secondaryBackground: Container(
+                    // Left swipe (dislike)
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 20),
+                        child: Icon(Icons.close, color: Colors.red, size: 40),
+                      ),
+                    ),
+                  ),
+                  child: GestureDetector(
+                    child: Container(
+                      height: 400,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Profile Image
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Image.network(
+                              'http://192.168.1.76:8000${profile['profile_picture']}',
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          // Gradient overlay
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.7),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // User Info
+                          Positioned(
+                            bottom: 70,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  profile['name'],
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  profile['bio'] ?? 'No bio available',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 16,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Action Buttons
+                          Positioned(
+                            bottom: 16,
+                            left: 16,
+                            right: 16,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _buildActionButton(
+                                  Icons.close,
+                                  Colors.red,
+                                  () async {
+                                    if (_currentUserId != 0) {
+                                      await handleSwipe(
+                                        swipeType: 'dislike',
+                                        swipedUserId: _currentUserId,
+                                        swipedOnId: userId,
+                                      );
+                                      setState(() {
+                                        _matches.removeAt(index);
+                                      });
+                                    }
+                                  },
+                                ),
+                                _buildActionButton(
+                                  Icons.favorite,
+                                  Colors.green,
+                                  () async {
+                                    if (_currentUserId != 0) {
+                                      await handleSwipe(
+                                        swipeType: 'like',
+                                        swipedUserId: _currentUserId,
+                                        swipedOnId: userId,
+                                      );
+                                      setState(() {
+                                        _matches.removeAt(index);
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
           ),
         ),
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
+
+
+
 
   // Placeholder for Search tab
   Widget _buildSearchScreen() {
