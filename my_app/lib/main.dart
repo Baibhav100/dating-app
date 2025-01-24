@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import './screens/Welcome.dart'; // Import your Welcome screen
 import './screens/Home_screen.dart'; // Import your Home screen
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter async setup is initialized
+  await dotenv.load(fileName: ".env"); // Load environment variables
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -15,47 +22,38 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: _getInitialScreen(), // Determine the initial screen
+      home: FutureBuilder<Widget>(
+        future: _getInitialScreen(), // Async function to determine initial screen
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            // Show loading indicator while waiting for the Future to complete
+            return const Center(child: CircularProgressIndicator());
+          }
 
-      routes:{
-        '/home':(context)=>HomePage(),
-      }
+          if (snapshot.hasData) {
+            // Return the screen determined by the Future
+            return snapshot.data!;
+          }
 
-    );
-  }
-
-  // Use FutureBuilder to handle the async task of checking token
-  Widget _getInitialScreen() {
-    return FutureBuilder<Widget>(
-      future: _getInitialScreenFuture(), // Call the async method
-      builder: (context, snapshot) {
-        // Check if the Future has completed
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // Show a loading indicator while waiting for the Future to complete
-          return Center(child: CircularProgressIndicator());
-        }
-
-        // If the Future has completed, return the appropriate screen
-        if (snapshot.hasData) {
-          return snapshot.data!;
-        } else {
-          // If there's no data or error, return a default screen
+          // Fallback in case of error or no data
           return WelcomeScreen();
-        }
+        },
+      ),
+      routes: {
+        '/home': (context) => const HomePage(),
       },
     );
   }
 
-  // This function checks if the access token exists
-  Future<Widget> _getInitialScreenFuture() async {
+  // Async method to check if the access token exists
+  Future<Widget> _getInitialScreen() async {
     final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString('access_token'); // Get stored token
+    final accessToken = prefs.getString('access_token'); // Retrieve stored token
 
-    // If the access token is found, return HomePage, else return WelcomeScreen
     if (accessToken != null && accessToken.isNotEmpty) {
-      return HomePage(); // Navigate to the Home screen
+      return const HomePage(); // Navigate to HomePage if token exists
     } else {
-      return WelcomeScreen(); // Navigate to the Welcome screen
+      return WelcomeScreen(); // Navigate to WelcomeScreen otherwise
     }
   }
 }

@@ -5,6 +5,8 @@ import 'dart:convert';
 import './Home_screen.dart';
 import 'CreateProfile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -158,9 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Login Button 
                 ElevatedButton(
                   onPressed: () {
+                    String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
                     String endpoint = isEmailLogin
-                        ? 'http://192.168.1.76:8000/auth/send-email-otp/'
-                        : 'http://192.168.1.76:8000/auth/send-otp/';
+                        ? '$baseUrl/auth/send-email-otp/'
+                        : '$baseUrl/auth/send-otp/';
                     sendOtp(endpoint, inputController.text, context);
                   },
                   style: ElevatedButton.styleFrom(
@@ -196,8 +199,68 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // Google Login Button
                     TextButton.icon(
-                      onPressed: () {
-                        print("Google Login Clicked");
+                      onPressed: () async {
+                        try {
+                          // Trigger the Google Sign-In process
+                          final GoogleSignIn googleSignIn = GoogleSignIn(
+                            scopes: ['email', 'profile'], // Specify the scopes you need
+                          );
+                          final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+                          if (googleUser == null) {
+                            print("Google Sign-In canceled by the user.");
+                            return;
+                          }
+
+                          print("Google Sign-In successful. Account: ${googleUser.displayName}, Email: ${googleUser.email}");
+
+                          // Obtain the auth details from the Google Sign-In process
+                          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+                          // Check if the required tokens are available
+                          if (googleAuth.idToken == null || googleAuth.accessToken == null) {
+                            print("Failed to retrieve authentication tokens.");
+                            return;
+                          }
+
+                          // Use the tokens to authenticate with Firebase
+                          final credential = GoogleAuthProvider.credential(
+                            idToken: googleAuth.idToken,
+                            accessToken: googleAuth.accessToken,
+                          );
+
+                          final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+
+                          // Extract the user details
+                          final User? user = userCredential.user;
+                          if (user != null) {
+                            print("Firebase Sign-In successful. User: ${user.displayName}, Email: ${user.email}");
+
+                            // Optional: Send the Firebase ID Token to your backend for further authentication
+                            final idToken = await user.getIdToken();
+                            print("Firebase ID Token: $idToken");
+
+                            final response = await http.post(
+                              Uri.parse('$baseUrl/auth/social-login/'),
+                              headers: {"Content-Type": "application/json"},
+                              body: json.encode({
+                                "provider": "firebase",
+                                "token": idToken,
+                              }),
+                            );
+
+                            print("Backend response status: ${response.statusCode}");
+                            if (response.statusCode == 200) {
+                              print("Google login successful: ${response.body}");
+                            } else {
+                              print("Google login failed. Response body: ${response.body}");
+                            }
+                          } else {
+                            print("User is null after Firebase Sign-In.");
+                          }
+                        } catch (e) {
+                          print("Error during Google Sign-In: $e");
+                        }
                       },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -252,8 +315,9 @@ class OtpVerificationScreen extends StatelessWidget {
 
   Future<void> verifyOtp(BuildContext context) async {
     try {
+      String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
       final response = await http.post(
-        Uri.parse('http://192.168.1.76:8000/auth/email-otp-login/'),
+        Uri.parse('$baseUrl/auth/email-otp-login/'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': value, 'otp': otpController.text}),
       );
@@ -272,7 +336,7 @@ class OtpVerificationScreen extends StatelessWidget {
 
             // Fetch user details to check if the profile exists
             final userDetailsResponse = await http.get(
-              Uri.parse('http://192.168.1.76:8000/auth/my-profile/'),
+              Uri.parse('$baseUrl/auth/my-profile/'),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $accessToken',

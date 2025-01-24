@@ -37,3 +37,5 @@ android {
 flutter {
     source = "../.." // Make sure this path points correctly to the Flutter project
 }
+
+apply plugin: 'com.google.gms.google-services'
