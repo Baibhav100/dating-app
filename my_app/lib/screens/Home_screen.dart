@@ -6,6 +6,7 @@ import 'ProfileScreen.dart';
 import 'Welcome.dart';
 import 'login_screen.dart';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 
@@ -82,7 +83,7 @@ class _HomePageState extends State<HomePage> {
 
       if (accessToken == null && refreshToken != null) {
         // Try to refresh the token if access token is missing but we have refresh token
-        accessToken = await _refreshAccessToken(refreshToken!);
+        accessToken = refreshToken;
       }
     } catch (e) {
       print('Error loading tokens: $e');
@@ -428,8 +429,48 @@ class _HomePageState extends State<HomePage> {
   }
 
   // New method for Matches screen
-  Widget _buildMatchesScreen() {
-    return Column(
+  // Widget _buildMatchesScreen() {
+  //   return Column(
+  //     children: [
+  //       // Header
+  //       Padding(
+  //         padding: const EdgeInsets.all(16.0),
+  //         child: Text(
+  //           'Your Matches',
+  //           style: TextStyle(
+  //             fontSize: 24,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.grey[800],
+  //           ),
+  //         ),
+  //       ),
+  //       // Matches grid or list
+  //       Expanded(
+  //         child: GridView.builder(
+  //           padding: const EdgeInsets.all(16),
+  //           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+  //             crossAxisCount: 2,
+  //             childAspectRatio: 0.75,
+  //             crossAxisSpacing: 16,
+  //             mainAxisSpacing: 16,
+  //           ),
+  //           itemCount: _matches.length,
+  //           itemBuilder: (context, index) {
+  //             final match = _matches[index]['profile'];
+  //             return _buildMatchCard(match);
+  //           },
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
+
+
+
+Widget _buildMatchesScreen() {
+  return DefaultTabController(
+    length: 3, // Number of tabs
+    child: Column(
       children: [
         // Header
         Padding(
@@ -443,103 +484,234 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        // Matches grid or list
+        // TabBar for Matches, Likes, Who Liked Me
+        TabBar(
+          labelColor: Colors.pinkAccent,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Colors.pinkAccent,
+          tabs: const [
+            Tab(text: 'Matches'),
+            Tab(text: 'Likes'),
+            Tab(text: 'Who Liked Me'),
+          ],
+        ),
+        // Tab content
         Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: _matches.length,
-            itemBuilder: (context, index) {
-              final match = _matches[index]['profile'];
-              return _buildMatchCard(match);
-            },
+          child: TabBarView(
+            children: [
+              _buildMatchesTabContent('matches'), // Matches tab
+              _buildMatchesTabContent('likes'), // Likes tab
+              _buildMatchesTabContent('whoLikedMe'), // Who Liked Me tab
+            ],
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildMatchCard(Map<String, dynamic> match) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+// .....................................................................................................
+// Matches Section
+// ................................................................
+
+
+Widget _buildMatchesTabContent(String tabType) {
+  return FutureBuilder<List<dynamic>>(
+    future: _Matches(), // Fetch matches asynchronously
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        // Show loading spinner while fetching data
+        return const Center(child: CircularProgressIndicator());
+      } else if (snapshot.hasError) {
+        // Show error message if fetching fails
+        return Center(
+          child: Text(
+            'Error: ${snapshot.error}',
+            style: const TextStyle(color: Colors.red),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          fit: StackFit.expand,
+        );
+      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        // Show a message if no matches are found
+        return const Center(
+          child: Text('No matches found'),
+        );
+      } else {
+        // Display matches in a vertical list
+        final matches = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          itemCount: matches.length,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              child: SizedBox(
+                width: MediaQuery.of(context).size.width,
+                child: _buildMatchCard(matches[index]),
+              ),
+            );
+          },
+        );
+      }
+    },
+  );
+}
+
+
+Future<List<dynamic>> _Matches() async {
+  const url = 'http://192.168.1.76:8000/auth/matches/';
+  try {
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+     'Authorization': 'Bearer $accessToken', // Replace with your actual access token
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to fetch matches. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Failed to fetch matches: $e');
+  }
+}
+Widget _buildMatchCard(Map<String, dynamic> match) {
+  return Container(
+    width: double.infinity, // Ensures the card spans the full width of the device
+    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8), // Reduce horizontal margin
+    child: Card(
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Image.network(
-              'http://192.168.1.76:8000${match['profile_picture']}',
-              fit: BoxFit.cover,
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.7),
+            // User profiles and love symbol
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // User 1 profile
+                Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 35, // Slightly larger profile picture
+                      backgroundImage: CachedNetworkImageProvider(
+                        match['user1_profile_pic'] ??
+                            'https://via.placeholder.com/150', // Fallback image
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      match['user1_username'] ?? 'User 1',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
+
+                // Love symbol
+                const Icon(
+                  Icons.favorite,
+                  color: Colors.pinkAccent,
+                  size: 50,
+                ),
+
+                // User 2 profile
+                Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 35,
+                      backgroundImage: CachedNetworkImageProvider(
+                        match['user2_profile_pic'] ??
+                            'https://via.placeholder.com/150', // Fallback image
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      match['user2_username'] ?? 'User 2',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Match details
+            Text(
+              'Matched on: ${match['created_at'] ?? 'Unknown date'}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
               ),
             ),
-            Positioned(
-              bottom: 8,
-              left: 8,
-              right: 8,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    match['name'],
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+            const SizedBox(height: 12),
+
+            // Delete button
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  await _deleteMatch(match['id'], context);
+                },
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                label: const Text('Delete Match'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Colors.white70,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '2 km away', // Replace with actual distance
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ],
         ),
       ),
+    ),
+  );
+}
+
+
+Future<void> _deleteMatch(int matchId, BuildContext context) async {
+  final url = 'http://192.168.1.76:8000/auth/matches/$matchId/remove/';
+  try {
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: {
+         'Authorization': 'Bearer $accessToken', // Replace with your actual access token
+      },
+    );
+
+    if (response.statusCode == 204) {
+      // Success: Match deleted
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Match deleted successfully!')),
+      );
+    } else {
+      // Handle error
+      final errorMessage = json.decode(response.body)['detail'] ?? 'Error deleting match.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete match: $errorMessage')),
+      );
+    }
+  } catch (e) {
+    // Handle exceptions
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to delete match: $e')),
     );
   }
-
+}
   // Home tab with header
   Widget _buildHomeScreen() {
     return Column(
