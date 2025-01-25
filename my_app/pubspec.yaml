@@ -23,6 +23,10 @@ dependencies:
   carousel_slider: ^4.2.1
   flutter_svg: ^2.0.9
   cached_network_image: ^3.2.3
+  flutter_dotenv: ^5.2.1
+  google_sign_in: ^6.2.2
+  firebase_core: ^2.15.0
+  firebase_auth: ^4.16.0
 
 
 dev_dependencies:
@@ -36,4 +40,5 @@ flutter:
   assets:
     - assets/
       # Ensure correct path here
+    - .env
 
