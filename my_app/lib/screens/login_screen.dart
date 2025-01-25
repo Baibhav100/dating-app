@@ -197,14 +197,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Google Login Button
+                   // Google Login Button
                     TextButton.icon(
                       onPressed: () async {
                         try {
-                          // Trigger the Google Sign-In process
-                          final GoogleSignIn googleSignIn = GoogleSignIn(
-                            scopes: ['email', 'profile'], // Specify the scopes you need
-                          );
+                          String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+                          
+                          // Trigger Google Sign-In
+                          final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
                           final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
 
                           if (googleUser == null) {
@@ -214,52 +214,96 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           print("Google Sign-In successful. Account: ${googleUser.displayName}, Email: ${googleUser.email}");
 
-                          // Obtain the auth details from the Google Sign-In process
+                          // Obtain authentication details from Google
                           final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
-                          // Check if the required tokens are available
-                          if (googleAuth.idToken == null || googleAuth.accessToken == null) {
-                            print("Failed to retrieve authentication tokens.");
+                          // Extract the Google ID Token and Access Token
+                          final String? googleIdToken = googleAuth.idToken;
+                          final String? googleAccessToken = googleAuth.accessToken;
+
+                          if (googleIdToken == null || googleAccessToken == null) {
+                            print("Failed to retrieve Google ID Token or Access Token.");
                             return;
                           }
 
-                          // Use the tokens to authenticate with Firebase
-                          final credential = GoogleAuthProvider.credential(
-                            idToken: googleAuth.idToken,
-                            accessToken: googleAuth.accessToken,
+                          print("Google ID Token: $googleIdToken");
+
+                          // Send Google ID Token to the backend
+                          final response = await http.post(
+                            Uri.parse('$baseUrl/auth/social-login/'),
+                            headers: {"Content-Type": "application/json"},
+                            body: json.encode({
+                              "provider": "google",
+                              "code": googleIdToken, // Use id_token instead of code
+                            }),
                           );
 
-                          final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+                          // Check the response from the backend
+                          if (response.statusCode == 200) {
 
-                          // Extract the user details
-                          final User? user = userCredential.user;
-                          if (user != null) {
-                            print("Firebase Sign-In successful. User: ${user.displayName}, Email: ${user.email}");
+                            final data = json.decode(response.body);
 
-                            // Optional: Send the Firebase ID Token to your backend for further authentication
-                            final idToken = await user.getIdToken();
-                            print("Firebase ID Token: $idToken");
+                            if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
+                              final accessToken = data['access_token'];
+                              final refreshToken = data['refresh_token'];
 
-                            final response = await http.post(
-                              Uri.parse('$baseUrl/auth/social-login/'),
-                              headers: {"Content-Type": "application/json"},
-                              body: json.encode({
-                                "provider": "firebase",
-                                "token": idToken,
-                              }),
-                            );
+                              if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setString('access_token', accessToken);
+                                await prefs.setString('refresh_token', refreshToken);
 
-                            print("Backend response status: ${response.statusCode}");
-                            if (response.statusCode == 200) {
-                              print("Google login successful: ${response.body}");
+                                // Fetch user details to check if the profile exists
+                                final userDetailsResponse = await http.get(
+                                  Uri.parse('$baseUrl/auth/my-profile/'),
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer $accessToken',
+                                  },
+                                );
+
+                                print("User details response status: ${userDetailsResponse.statusCode}");
+
+                                if (userDetailsResponse.statusCode == 200) {
+                                  // Profile exists
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Login Successful!')),
+                                  );
+                                  
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => HomePage(
+                                        accessToken: accessToken,
+                                        refreshToken: refreshToken,
+                                      ),
+                                    ),
+                                  );
+                                } else if (userDetailsResponse.statusCode == 404) {
+                                  // Profile doesn't exist
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => CreateProfileScreen(value: googleUser.email)),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
+                                  );
+                                }
+                              }
                             } else {
-                              print("Google login failed. Response body: ${response.body}");
+                              print("Response does not contain 'access' or 'refresh' token");
                             }
                           } else {
-                            print("User is null after Firebase Sign-In.");
+                            print("Login failed: ${response.body}");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Login failed: ${response.body}')),
+                            );
                           }
                         } catch (e) {
                           print("Error during Google Sign-In: $e");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
                         }
                       },
                       style: TextButton.styleFrom(

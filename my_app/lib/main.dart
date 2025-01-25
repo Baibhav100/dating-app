@@ -3,12 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import './screens/Welcome.dart'; // Import your Welcome screen
 import './screens/Home_screen.dart'; // Import your Home screen
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); // Ensure Flutter async setup is initialized
   await dotenv.load(fileName: ".env"); // Load environment variables
-  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
