@@ -160,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Login Button 
                 ElevatedButton(
                   onPressed: () {
+                    print(dotenv.env['BASE_URL']);
                     String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
                     String endpoint = isEmailLogin
                         ? '$baseUrl/auth/send-email-otp/'
