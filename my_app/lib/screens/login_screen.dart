@@ -5,6 +5,8 @@ import 'dart:convert';
 import './Home_screen.dart';
 import 'CreateProfile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -158,9 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Login Button 
                 ElevatedButton(
                   onPressed: () {
+                    String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
                     String endpoint = isEmailLogin
-                        ? 'http://192.168.1.76:8000/auth/send-email-otp/'
-                        : 'http://192.168.1.76:8000/auth/send-otp/';
+                        ? '$baseUrl/auth/send-email-otp/'
+                        : '$baseUrl/auth/send-otp/';
                     sendOtp(endpoint, inputController.text, context);
                   },
                   style: ElevatedButton.styleFrom(
@@ -194,10 +197,114 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Google Login Button
+                   // Google Login Button
                     TextButton.icon(
-                      onPressed: () {
-                        print("Google Login Clicked");
+                      onPressed: () async {
+                        try {
+                          String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+                          
+                          // Trigger Google Sign-In
+                          final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+                          final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+                          if (googleUser == null) {
+                            print("Google Sign-In canceled by the user.");
+                            return;
+                          }
+
+                          print("Google Sign-In successful. Account: ${googleUser.displayName}, Email: ${googleUser.email}");
+
+                          // Obtain authentication details from Google
+                          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+                          // Extract the Google ID Token and Access Token
+                          final String? googleIdToken = googleAuth.idToken;
+                          final String? googleAccessToken = googleAuth.accessToken;
+
+                          if (googleIdToken == null || googleAccessToken == null) {
+                            print("Failed to retrieve Google ID Token or Access Token.");
+                            return;
+                          }
+
+                          print("Google ID Token: $googleIdToken");
+
+                          // Send Google ID Token to the backend
+                          final response = await http.post(
+                            Uri.parse('$baseUrl/auth/social-login/'),
+                            headers: {"Content-Type": "application/json"},
+                            body: json.encode({
+                              "provider": "google",
+                              "code": googleIdToken, // Use id_token instead of code
+                            }),
+                          );
+
+                          // Check the response from the backend
+                          if (response.statusCode == 200) {
+
+                            final data = json.decode(response.body);
+
+                            if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
+                              final accessToken = data['access_token'];
+                              final refreshToken = data['refresh_token'];
+
+                              if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setString('access_token', accessToken);
+                                await prefs.setString('refresh_token', refreshToken);
+
+                                // Fetch user details to check if the profile exists
+                                final userDetailsResponse = await http.get(
+                                  Uri.parse('$baseUrl/auth/my-profile/'),
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer $accessToken',
+                                  },
+                                );
+
+                                print("User details response status: ${userDetailsResponse.statusCode}");
+
+                                if (userDetailsResponse.statusCode == 200) {
+                                  // Profile exists
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Login Successful!')),
+                                  );
+                                  
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => HomePage(
+                                        accessToken: accessToken,
+                                        refreshToken: refreshToken,
+                                      ),
+                                    ),
+                                  );
+                                } else if (userDetailsResponse.statusCode == 404) {
+                                  // Profile doesn't exist
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => CreateProfileScreen(value: googleUser.email)),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
+                                  );
+                                }
+                              }
+                            } else {
+                              print("Response does not contain 'access' or 'refresh' token");
+                            }
+                          } else {
+                            print("Login failed: ${response.body}");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Login failed: ${response.body}')),
+                            );
+                          }
+                        } catch (e) {
+                          print("Error during Google Sign-In: $e");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
                       },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -252,8 +359,9 @@ class OtpVerificationScreen extends StatelessWidget {
 
   Future<void> verifyOtp(BuildContext context) async {
     try {
+      String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
       final response = await http.post(
-        Uri.parse('http://192.168.1.76:8000/auth/email-otp-login/'),
+        Uri.parse('$baseUrl/auth/email-otp-login/'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': value, 'otp': otpController.text}),
       );
@@ -272,7 +380,7 @@ class OtpVerificationScreen extends StatelessWidget {
 
             // Fetch user details to check if the profile exists
             final userDetailsResponse = await http.get(
-              Uri.parse('http://192.168.1.76:8000/auth/my-profile/'),
+              Uri.parse('$baseUrl/auth/my-profile/'),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $accessToken',
