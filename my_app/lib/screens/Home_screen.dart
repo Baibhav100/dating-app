@@ -39,6 +39,7 @@ class _HomePageState extends State<HomePage> {
   String? _userName;
   String? _userEmail;
   String? _profilePicture;
+int? _creditScore;// Initialize with a default value
 
   // Function to fetch matches from the API
   Future<List<dynamic>> _fetchMatches() async {
@@ -89,6 +90,32 @@ class _HomePageState extends State<HomePage> {
       print('Error loading tokens: $e');
     }
   }
+
+
+  // credit scores
+
+  Future<void> _fetchCreditScore() async {
+  try {
+    final response = await http.get(
+      Uri.parse('http://192.168.1.76:8000/auth/user-credits/'),
+      headers: {
+        'Authorization': 'Bearer $accessToken', // Use the token for authentication
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        _creditScore = data['total_credits']; // Update the credit score
+      });
+    } else {
+      print('Failed to fetch credit score: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error fetching credit score: $e');
+  }
+}
 
   Future<String> _refreshAccessToken(String refreshToken) async {
     try {
@@ -141,34 +168,39 @@ class _HomePageState extends State<HomePage> {
   List<dynamic> _matches = [];
 
   @override
-  void initState() {
-    super.initState();
-    // Initialize with passed tokens if available
-    if (widget.accessToken != null && widget.refreshToken != null) {
-      accessToken = widget.accessToken;
-      refreshToken = widget.refreshToken;
+void initState() {
+  super.initState();
+  // Initialize with passed tokens if available
+  if (widget.accessToken != null && widget.refreshToken != null) {
+    accessToken = widget.accessToken;
+    refreshToken = widget.refreshToken;
+
+    // Fetch user details, matches, and credit score
+    _fetchUserDetails().then((_) {
+      _fetchMatches().then((matches) {
+        setState(() {
+          _matches = matches;
+        });
+      });
+      _fetchCreditScore(); // Fetch credit score after user details
+    });
+    fetchCurrentUserId();
+  } else {
+    // Fallback to loading from SharedPreferences
+    _loadTokens().then((_) {
       _fetchUserDetails().then((_) {
         _fetchMatches().then((matches) {
           setState(() {
             _matches = matches;
           });
         });
+        _fetchCreditScore(); // Fetch credit score after user details
       });
-       fetchCurrentUserId();
-    } else {
-      // Fallback to loading from SharedPreferences
-      _loadTokens().then((_) {
-        _fetchUserDetails().then((_) {
-          _fetchMatches().then((matches) {
-            setState(() {
-              _matches = matches;
-            });
-          });
-        });
-         fetchCurrentUserId();
-      });
-    }
+      fetchCurrentUserId();
+    });
   }
+}
+
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -755,6 +787,16 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
                           color: Color.fromARGB(179, 59, 58, 58),
                         ),
                       ),
+                       Text(
+      _creditScore != null
+          ? 'Credits: $_creditScore'
+          : 'Loading...', // Display the credit score
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.green,
+      ),
+                       ),
                     ],
                   ),
                   const Spacer(),
