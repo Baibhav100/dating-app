@@ -7,6 +7,7 @@ import 'CreateProfile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -322,8 +323,105 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(width: 20),
                     // Facebook Login Button
-                    TextButton.icon(
-                      onPressed: () {
+                   TextButton.icon(
+                      onPressed: () async {
+                        try {
+                          String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+
+                          // Trigger Facebook Sign-In
+                          final LoginResult result = await FacebookAuth.instance.login(
+                            permissions: ['public_profile', 'email'],
+                          ); // Request email and public profile by default
+
+                          if (result.status == LoginStatus.success) {
+                            // User successfully logged in
+                            final AccessToken accessToken = result.accessToken!;
+                            print("Access Token: ${accessToken.token}");
+
+                            // Send Facebook Access Token to the backend
+                            final response = await http.post(
+                              Uri.parse('$baseUrl/auth/social-login/'),
+                              headers: {"Content-Type": "application/json"},
+                              body: json.encode({
+                                "provider": "facebook",
+                                "code": accessToken.token, // Use the Facebook access token
+                              }),
+                            );
+
+                            // Check the response from the backend
+                            if (response.statusCode == 200) {
+                              final data = json.decode(response.body);
+
+                              if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
+                                final accessToken = data['access_token'];
+                                final refreshToken = data['refresh_token'];
+
+                                if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.setString('access_token', accessToken);
+                                  await prefs.setString('refresh_token', refreshToken);
+
+                                  // Fetch user details to check if the profile exists
+                                  final userDetailsResponse = await http.get(
+                                    Uri.parse('$baseUrl/auth/my-profile/'),
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': 'Bearer $accessToken',
+                                    },
+                                  );
+
+                                  print("User details response status: ${userDetailsResponse.statusCode}");
+
+                                  if (userDetailsResponse.statusCode == 200) {
+                                    // Profile exists
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Login Successful!')),
+                                    );
+                                    
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => HomePage(
+                                          accessToken: accessToken,
+                                          refreshToken: refreshToken,
+                                        ),
+                                      ),
+                                    );
+                                  } else if (userDetailsResponse.statusCode == 404) {
+                                    // Profile doesn't exist
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => CreateProfileScreen(value: 'Facebook User')),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
+                                    );
+                                  }
+                                }
+                              } else {
+                                print("Response does not contain 'access' or 'refresh' token");
+                              }
+                            } else {
+                              print("Login failed: ${response.body}");
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Login failed: ${response.body}')),
+                              );
+                            }
+                          } else {
+                            // Handle login failure
+                            print("Login Status: ${result.status}");
+                            print("Message: ${result.message}");
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Login failed: ${result.message}')),
+                            );
+                          }
+                        } catch (e) {
+                          print("Error during Facebook login: $e");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')),
+                          );
+                        }
                         print("Facebook Login Clicked");
                       },
                       style: TextButton.styleFrom(
@@ -339,6 +437,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       label: SizedBox.shrink(),
                     ),
+
                   ],
                 ),
               ],
