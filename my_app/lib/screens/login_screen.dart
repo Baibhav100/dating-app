@@ -7,6 +7,7 @@ import 'CreateProfile.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -208,13 +209,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Trigger Google Sign-In
                           final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
                           final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+                          
 
                           if (googleUser == null) {
                             print("Google Sign-In canceled by the user.");
                             return;
                           }
-
-                          print("Google Sign-In successful. Account: ${googleUser.displayName}, Email: ${googleUser.email}");
+                          print("Google Sign-In successful. Account: ${googleUser}, Email: ${googleUser.email}");
 
                           // Obtain authentication details from Google
                           final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
@@ -222,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Extract the Google ID Token and Access Token
                           final String? googleIdToken = googleAuth.idToken;
                           final String? googleAccessToken = googleAuth.accessToken;
-
+                          print("Server Auth Code: ${googleUser.serverAuthCode}");
                           if (googleIdToken == null || googleAccessToken == null) {
                             print("Failed to retrieve Google ID Token or Access Token.");
                             return;
