@@ -584,7 +584,7 @@ Widget _buildMatchesTabContent(String tabType) {
           },
         );
       }
-    },
+    }, 
   );
 }
 
