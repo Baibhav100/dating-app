@@ -9,6 +9,10 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'refresh_helper.dart'; // Import the helper
+
+String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
 class HomePage extends StatefulWidget {
   final String? accessToken;
@@ -22,7 +26,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
- int _currentUserId=0;
+  int _currentUserId=0;
   bool _isLoading = false;
   String? _error;
   
@@ -39,7 +43,7 @@ class _HomePageState extends State<HomePage> {
   String? _userName;
   String? _userEmail;
   String? _profilePicture;
-int? _creditScore;// Initialize with a default value
+  int? _creditScore;// Initialize with a default value
 
   // Function to fetch matches from the API
   Future<List<dynamic>> _fetchMatches() async {
@@ -52,7 +56,7 @@ int? _creditScore;// Initialize with a default value
       }
 
       final response = await http.get(
-        Uri.parse('http://192.168.1.76:8000/auth/connections/'),
+        Uri.parse('$baseurl/auth/connections/'),
         headers: {
           'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
@@ -97,7 +101,7 @@ int? _creditScore;// Initialize with a default value
   Future<void> _fetchCreditScore() async {
   try {
     final response = await http.get(
-      Uri.parse('http://192.168.1.76:8000/auth/user-credits/'),
+      Uri.parse('$baseurl/auth/user-credits/'),
       headers: {
         'Authorization': 'Bearer $accessToken', // Use the token for authentication
         'Content-Type': 'application/json',
@@ -120,7 +124,7 @@ int? _creditScore;// Initialize with a default value
   Future<String> _refreshAccessToken(String refreshToken) async {
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.1.76:8000/auth/refresh/'),
+        Uri.parse('$baseurl/auth/refresh/'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'refresh_token': refreshToken}),
       );
@@ -143,7 +147,7 @@ int? _creditScore;// Initialize with a default value
   Future<void> _fetchUserDetails() async {
     try {
       final response = await http.get(
-        Uri.parse('http://192.168.1.76:8000/auth/my-profile/'),
+        Uri.parse('$baseurl/auth/my-profile/'),
         headers: {
           'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
@@ -318,129 +322,153 @@ void initState() {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-                : IndexedStack(
-                    index: _currentIndex,
-                    children: [
-                      _buildHomeScreen(),    // Swipe/Discover Tab
-                      _buildMatchesScreen(), // Matches Tab
-                      _buildChatScreen(),    // Messages Tab
-                     ProfileScreen(), // Profile Tab
-                    ],
-                  ),
+// Inside your build method
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: SafeArea(
+      child: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              : IndexedStack(
+                  index: _currentIndex,
+                  children: [
+                    // Home screen with refresh
+                    RefreshIndicator(
+                        onRefresh: () async {
+                          await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
+                          // You can also add other home-specific refresh logic here if needed
+                          await _fetchUserDetails();
+                          await _fetchMatches();
+                          await _fetchCreditScore();
+                        },
+                      child: _buildHomeScreen(),
+                    ),
+                    // Matches screen with refresh
+                    RefreshIndicator(
+                      onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+                      child: _buildMatchesScreen(),
+                    ),
+                    // Chat screen with refresh
+                    RefreshIndicator(
+                      onRefresh: () => RefreshHelper.onChatRefresh(context),
+                      child: _buildChatScreen(),
+                    ),
+                    // Profile screen with refresh
+                    RefreshIndicator(
+                      onRefresh: () => RefreshHelper.onProfileRefresh(context),
+                      child: ProfileScreen(),
+                    ),
+                  ],
+                ),
+    ),
+    bottomNavigationBar: Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: BottomNavigationBar(
+          items: [
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(Icons.favorite, 0),
+              label: 'Discover',
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  _buildAnimatedIcon(Icons.people, 1),
+                  // Notification badge for new matches
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 12,
+                        minHeight: 12,
+                      ),
+                      child: const Text(
+                        '2', // Replace with actual count
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              label: 'Matches',
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  _buildAnimatedIcon(Icons.chat_bubble, 2),
+                  // Notification badge for unread messages
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 12,
+                        minHeight: 12,
+                      ),
+                      child: const Text(
+                        '5', // Replace with actual count
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              label: 'Messages',
+            ),
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(Icons.person, 3),
+              label: 'Profile',
             ),
           ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: BottomNavigationBar(
-            items: [
-              BottomNavigationBarItem(
-                icon: _buildAnimatedIcon(Icons.favorite, 0),
-                label: 'Discover',
-              ),
-              BottomNavigationBarItem(
-                icon: Stack(
-                  children: [
-                    _buildAnimatedIcon(Icons.people, 1),
-                    // Add notification badge for new matches
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 12,
-                          minHeight: 12,
-                        ),
-                        child: const Text(
-                          '2', // Replace with actual count
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                label: 'Matches',
-              ),
-              BottomNavigationBarItem(
-                icon: Stack(
-                  children: [
-                    _buildAnimatedIcon(Icons.chat_bubble, 2),
-                    // Add notification badge for unread messages
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 12,
-                          minHeight: 12,
-                        ),
-                        child: const Text(
-                          '5', // Replace with actual count
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                label: 'Messages',
-              ),
-              BottomNavigationBarItem(
-                icon: _buildAnimatedIcon(Icons.person, 3),
-                label: 'Profile',
-              ),
-            ],
-            currentIndex: _currentIndex,
-            selectedItemColor: Colors.pinkAccent,
-            unselectedItemColor: Colors.grey,
-            selectedFontSize: 12,
-            unselectedFontSize: 12,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-          ),
+          currentIndex: _currentIndex,
+          selectedItemColor: Colors.pinkAccent,
+          unselectedItemColor: Colors.grey,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildAnimatedIcon(IconData icon, int index) {
     return AnimatedContainer(
@@ -502,42 +530,48 @@ void initState() {
 Widget _buildMatchesScreen() {
   return DefaultTabController(
     length: 3, // Number of tabs
-    child: Column(
-      children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            'Your Matches',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
+    child: RefreshIndicator(
+      onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Your Matches',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
             ),
-          ),
-        ),
-        // TabBar for Matches, Likes, Who Liked Me
-        TabBar(
-          labelColor: Colors.pinkAccent,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.pinkAccent,
-          tabs: const [
-            Tab(text: 'Matches'),
-            Tab(text: 'Likes'),
-            Tab(text: 'Who Liked Me'),
+            // TabBar for Matches, Likes, Who Liked Me
+            TabBar(
+              labelColor: Colors.pinkAccent,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: Colors.pinkAccent,
+              tabs: const [
+                Tab(text: 'Matches'),
+                Tab(text: 'Likes'),
+                Tab(text: 'Who Liked Me'),
+              ],
+            ),
+            // Tab content
+            Container(
+              height: 500, // Adjust height based on your content
+              child: TabBarView(
+                children: [
+                  _buildMatchesTabContent('matches'), // Matches tab
+                  _buildMatchesTabContent('likes'), // Likes tab
+                  _buildMatchesTabContent('whoLikedMe'), // Who Liked Me tab
+                ],
+              ),
+            ),
           ],
         ),
-        // Tab content
-        Expanded(
-          child: TabBarView(
-            children: [
-              _buildMatchesTabContent('matches'), // Matches tab
-              _buildMatchesTabContent('likes'), // Likes tab
-              _buildMatchesTabContent('whoLikedMe'), // Who Liked Me tab
-            ],
-          ),
-        ),
-      ],
+      ),
     ),
   );
 }
@@ -590,7 +624,7 @@ Widget _buildMatchesTabContent(String tabType) {
 
 
 Future<List<dynamic>> _Matches() async {
-  const url = 'http://192.168.1.76:8000/auth/matches/';
+  final url = '$baseurl/auth/matches/';
   try {
     final response = await http.get(
       Uri.parse(url),
@@ -716,7 +750,7 @@ Widget _buildMatchCard(Map<String, dynamic> match) {
 
 
 Future<void> _deleteMatch(int matchId, BuildContext context) async {
-  final url = 'http://192.168.1.76:8000/auth/matches/$matchId/remove/';
+  final url = '$baseurl/auth/matches/$matchId/remove/';
   try {
     final response = await http.delete(
       Uri.parse(url),
@@ -744,9 +778,10 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
     );
   }
 }
-  // Home tab with header
-  Widget _buildHomeScreen() {
-    return Column(
+// Home tab with header
+Widget _buildHomeScreen() {
+  return SingleChildScrollView(  // Make the entire screen scrollable
+    child: Column(
       children: [
         // Header with Circular Image and Name
         Container(
@@ -760,7 +795,7 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
                   CircleAvatar(
                     radius: 30,
                     backgroundImage: _profilePicture != null
-                        ? NetworkImage('http://192.168.1.76:8000${_profilePicture}')
+                        ? NetworkImage('$baseurl${_profilePicture}')
                         : null,
                     backgroundColor: Colors.grey[200],
                     child: _profilePicture == null
@@ -787,16 +822,16 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
                           color: Color.fromARGB(179, 59, 58, 58),
                         ),
                       ),
-                       Text(
-      _creditScore != null
-          ? 'Credits: $_creditScore'
-          : 'Loading...', // Display the credit score
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.green,
-      ),
-                       ),
+                      Text(
+                        _creditScore != null
+                            ? 'Credits: $_creditScore'
+                            : 'Loading...', // Display the credit score
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
                     ],
                   ),
                   const Spacer(),
@@ -850,14 +885,13 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
         ),
         // Suggested Matches Section
         _buildSuggestedMatches(),
-
       ],
-    );
-  }
-
+    ),
+  );
+}
 
   Future<void> fetchCurrentUserId() async {
-    final url = Uri.parse('http://192.168.1.76:8000/auth/user-details/');
+    final url = Uri.parse('$baseurl/auth/user-details/');
     try {
       // Load tokens
       await _loadTokens(); // This will load accessToken and refreshToken
@@ -902,7 +936,7 @@ Future<void> handleSwipe({
     return;
   }
 
-  const url = 'http://192.168.1.76:8000/auth/swipe/';
+  final url = '$baseurl/auth/swipe/';
 
   try {
     await _loadTokens();
@@ -1074,7 +1108,7 @@ Container _buildSuggestedMatches() {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(15),
                             child: Image.network(
-                              'http://192.168.1.76:8000${profile['profile_picture']}',
+                              '$baseurl${profile['profile_picture']}',
                               fit: BoxFit.cover,
                             ),
                           ),
