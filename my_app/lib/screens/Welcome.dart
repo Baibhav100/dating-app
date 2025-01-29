@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'login_screen.dart'; // Import the LoginScreen
 import './Home_screen.dart'; // Import the HomePage
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart'; // Add permission handler package
 
 class WelcomeScreen extends StatefulWidget {
   @override
@@ -18,6 +19,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   void initState() {
     super.initState();
     _checkLoginStatus();
+    _requestPermissions(); // Request permissions when initializing the app
 
     _controller = VideoPlayerController.networkUrl(
       Uri.parse(
@@ -45,6 +47,45 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         MaterialPageRoute(builder: (context) => HomePage()),
       );
     }
+  }
+
+  // Request permissions for location, camera, gallery, notifications, and background location
+  Future<void> _requestPermissions() async {
+    // Request location permission
+    await Permission.location.request();
+
+    // Request camera permission
+    await Permission.camera.request();
+
+    // Request gallery permission (storage)
+    await Permission.photos.request(); // For iOS
+    await Permission.storage.request(); // For Android
+
+    // Request background location permission
+    await Permission.locationAlways.request();
+
+    // Request notification permission
+    await Permission.notification.request();
+
+    // Check if all permissions are granted (optional)
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.location,
+      Permission.camera,
+      Permission.photos,
+      Permission.storage,
+      Permission.locationAlways,
+      Permission.notification,
+    ].request();
+
+    statuses.forEach((permission, status) {
+      if (status.isDenied) {
+        print("$permission is denied.");
+      } else if (status.isPermanentlyDenied) {
+        print("$permission is permanently denied. Open settings to allow.");
+      } else {
+        print("$permission is granted.");
+      }
+    });
   }
 
   @override

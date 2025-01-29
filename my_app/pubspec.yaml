@@ -28,6 +28,7 @@ dependencies:
   flutter_facebook_auth: ^6.0.0
   firebase_core: ^3.10.1
   firebase_auth: ^5.4.1
+  permission_handler: ^11.1.0
 
 
 dev_dependencies:
