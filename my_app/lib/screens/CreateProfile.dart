@@ -6,6 +6,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'refresh_helper.dart'; // Import the helper
+
+String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
 class CreateProfileScreen extends StatefulWidget {
   final String? value;
@@ -30,7 +34,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   File? videoProfile;
   List<Map<String, dynamic>> interests = [];
 
-  final _apiEndpoint = 'http://192.168.1.76:8000/auth/create_profile/';
+  final _apiEndpoint = '$baseurl/auth/create_profile/';
 
   // Shared Preferences
   SharedPreferences? prefs;
@@ -82,7 +86,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     }
 
     // Check if the URL is valid
-    final url = Uri.parse('http://192.168.1.76:8000/auth/interests/');
+    final url = Uri.parse('$baseurl/auth/interests/');
     if (url.isAbsolute == false) {
       print('Invalid URL');
       return;
