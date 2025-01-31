@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'refresh_helper.dart'; // Import the helper
+import 'UserProfileScreen.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
@@ -622,19 +623,53 @@ Widget _buildMatchesTabContent(String tabType) {
   );
 }
 
+// fetching user by id
+Future<Map<String, dynamic>> _fetchUserById(int userId) async {
+  final url = 'http://192.168.1.76:8000/auth/api/users/$userId/';
+  try {
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to fetch user details for ID $userId');
+    }
+  } catch (e) {
+    throw Exception('Error fetching user details: $e');
+  }
+}
 
-Future<List<dynamic>> _Matches() async {
+// ..................................................
+
+Future<List<Map<String, dynamic>>> _Matches() async {
   final url = '$baseurl/auth/matches/';
   try {
     final response = await http.get(
       Uri.parse(url),
       headers: {
-     'Authorization': 'Bearer $accessToken', // Replace with your actual access token
+        'Authorization': 'Bearer $accessToken',
       },
     );
 
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      List<dynamic> matches = json.decode(response.body);
+      
+      // Fetch user details for each match
+      List<Map<String, dynamic>> enrichedMatches = [];
+      for (var match in matches) {
+        var user1Details = await _fetchUserById(match['user1']);
+        var user2Details = await _fetchUserById(match['user2']);
+
+        enrichedMatches.add({
+          'user1': user1Details,
+          'user2': user2Details,
+          'user1_id':match['user1'],
+          'user2_id':match['user2'],
+          'created_at': match['created_at'],
+          'match_id': match['id'],
+        });
+      }
+
+      return enrichedMatches;
     } else {
       throw Exception('Failed to fetch matches. Status code: ${response.statusCode}');
     }
@@ -642,111 +677,118 @@ Future<List<dynamic>> _Matches() async {
     throw Exception('Failed to fetch matches: $e');
   }
 }
+
+// .....................................................................................
 Widget _buildMatchCard(Map<String, dynamic> match) {
   return Container(
-    width: double.infinity, // Ensures the card spans the full width of the device
-    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8), // Reduce horizontal margin
-    child: Card(
-      elevation: 6,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User profiles and love symbol
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // User 1 profile
-                Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 35, // Slightly larger profile picture
-                      backgroundImage: CachedNetworkImageProvider(
-                        match['user1_profile_pic'] ??
-                            'https://via.placeholder.com/150', // Fallback image
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      match['user1_username'] ?? 'User 1',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Love symbol
-                const Icon(
-                  Icons.favorite,
-                  color: Colors.pinkAccent,
-                  size: 50,
-                ),
-
-                // User 2 profile
-                Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 35,
-                      backgroundImage: CachedNetworkImageProvider(
-                        match['user2_profile_pic'] ??
-                            'https://via.placeholder.com/150', // Fallback image
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      match['user2_username'] ?? 'User 2',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    width: double.infinity,
+    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+    child: GestureDetector(
+      onTap: () {
+        // Pass the entire user2 data to the UserProfileScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserProfileScreen(
+              user: match['user2'],
+               user1Id: match['user1_id'], // Pass user1 ID
+              user2Id: match['user2_id'], // Pass user2 ID
             ),
-            const SizedBox(height: 16),
+          ),
+        );
+      },
+      child: Stack(
+        children: [
+          // Main Card
+          Card(
+            elevation: 6,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User profiles and love symbol
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // User 1 profile
+                      Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 35,
+                            backgroundImage: CachedNetworkImageProvider(
+                              '$baseurl${match['user1']['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Me',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
 
-            // Match details
-            Text(
-              'Matched on: ${match['created_at'] ?? 'Unknown date'}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 12),
+                      // Love symbol
+                      const Icon(
+                        Icons.favorite,
+                        color: Colors.pinkAccent,
+                        size: 50,
+                      ),
 
-            // Delete button
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton.icon(
-                onPressed: () async {
-                  await _deleteMatch(match['id'], context);
-                },
-                icon: const Icon(
-                  Icons.delete,
-                  color: Colors.white,
-                  size: 18,
-                ),
-                label: const Text('Delete Match'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      // User 2 profile
+                      Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 35,
+                            backgroundImage: CachedNetworkImageProvider(
+                              '$baseurl${match['user2']['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            match['user2']['name'] ?? 'User 2',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
+
+                  const SizedBox(height: 12),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Delete Button at the top-right corner
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              onPressed: () async {
+                await _deleteMatch(match['match_id'], context);
+              },
+              icon: const Icon(
+                Icons.delete,
+                color: Colors.redAccent,
+                size: 30, // Adjust size as per your preference
+              ),
+              tooltip: 'Delete Match', // Optional tooltip on hover
+            ),
+          ),
+        ],
       ),
     ),
   );
 }
+
 
 
 Future<void> _deleteMatch(int matchId, BuildContext context) async {
