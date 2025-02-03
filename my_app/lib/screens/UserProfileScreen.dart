@@ -88,7 +88,7 @@ class UserProfileScreen extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ChatScreen(user: user,
+                  builder: (context) => ChatScreen(
                   user1Id: user1Id, 
                   user2Id: user2Id,),
                 ),
