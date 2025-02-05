@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:31728149873:android:c9cd064d4bab04089702d0",
         "android_client_info": {
-          "package_name": "com.adventurecode.testflique"
+          "package_name": "com.adventurecode.flique"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "31728149873-qokn2qhrusc7dbcn038qoag9k3onedsp.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.adventurecode.testflique",
+            "package_name": "com.adventurecode.flique",
             "certificate_hash": "bf18e54f7b1ab2eeaaf540454bcad6698154dae9"
           }
         },
