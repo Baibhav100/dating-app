@@ -23,7 +23,7 @@
         <meta-data android:name="com.facebook.sdk.ClientToken" android:value="@string/facebook_client_token"/>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.example.my_app.provider"
+            android:authorities="com.adventurecode.flique.provider"
             android:exported="false"
             android:grantUriPermissions="true" />
         <activity

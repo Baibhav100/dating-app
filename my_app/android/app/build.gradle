@@ -14,7 +14,7 @@ keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
 // ..................................
 android {
-    namespace = "com.adventurecode.testflique" // Correct namespace, matches applicationId below
+    namespace = "com.adventurecode.flique" // Correct namespace, matches applicationId below
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -41,7 +41,7 @@ android {
 
     defaultConfig {
         // applicationId = "com.example.my_app" // Must match the namespace
-        applicationId = "com.adventurecode.testflique" // Must match the namespace    
+        applicationId = "com.adventurecode.flique" // Must match the namespace    
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -61,6 +61,8 @@ android {
         // }
         release {
             signingConfig = signingConfigs.debug // Signing config for release, can be customized
+            shrinkResources false
+            minifyEnabled false
             
         }
     }
