@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'refresh_helper.dart'; // Import the helper
 import 'UserProfileScreen.dart';
+import 'package:my_app/screens/add_credits_screen.dart';
 import 'ChatListScreen.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
@@ -892,16 +893,34 @@ Widget _buildHomeScreen() {
                           color: Color.fromARGB(179, 59, 58, 58),
                         ),
                       ),
-                      Text(
-                        _creditScore != null
-                            ? 'Credits: $_creditScore'
-                            : 'Loading...', // Display the credit score
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Text(
+                            _creditScore != null
+                                ? 'Credits: $_creditScore'
+                                : 'Loading...', // Display the credit score
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.add, // Plus icon
+                              color: Colors.green,
+                            ),
+                            onPressed: () {
+                              // Navigate to the AddCreditsScreen
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => AddCreditsScreen()),
+                              );
+                            },
+                          ),
+                        ],
+                      )
                     ],
                   ),
                   const Spacer(),
@@ -980,6 +999,8 @@ Widget _buildHomeScreen() {
           setState(() {
             _currentUserId = data['user']['id']; // Extract the user ID
           });
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_id', _currentUserId.toString());
           print('Logged-in User ID: $_currentUserId');
         } else {
           print('Failed to fetch user details: ${response.statusCode}');
