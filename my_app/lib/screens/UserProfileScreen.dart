@@ -1,21 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'ChatScreen.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
-class UserProfileScreen extends StatelessWidget {
+class UserProfileScreen extends StatefulWidget {
   final Map<String, dynamic> user;
-  final int user1Id; // Changed to int
-  final int user2Id; 
+  final int user1Id;
+  final int user2Id;
 
-  UserProfileScreen({required this.user,required this.user1Id,required this.user2Id});
+  UserProfileScreen({required this.user, required this.user1Id, required this.user2Id});
+
+  @override
+  _UserProfileScreenState createState() => _UserProfileScreenState();
+}
+
+class _UserProfileScreenState extends State<UserProfileScreen> {
+  Map<int, String> allInterests = {};
+  List<String> userInterests = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchInterests();
+  }
+    Future<String?> getAccessToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('access_token');
+  }
+
+
+  Future<void> fetchInterests() async {
+    final accessToken = await getAccessToken();
+
+    if (accessToken == null) {
+      showErrorSnackBar('Access token is missing.');
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseurl/auth/interests/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $accessToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        List<dynamic> interestsData = json.decode(response.body);
+
+        setState(() {
+          allInterests = {for (var interest in interestsData) interest['id']: interest['name']};
+          userInterests = widget.user['interests']
+              .map<String>((id) => allInterests[id] ?? 'Unknown')
+              .toList();
+          isLoading = false;
+        });
+      } else {
+        showErrorSnackBar('Error fetching interests');
+      }
+    } catch (e) {
+      showErrorSnackBar('An error occurred while fetching interests.');
+    }
+  }
+
+  void showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-  
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -28,7 +94,7 @@ class UserProfileScreen extends StatelessWidget {
               children: [
                 // Cover Picture
                 CachedNetworkImage(
-                  imageUrl: '$baseurl${user['cover_picture'] ?? ''}',
+                  imageUrl: '$baseurl${widget.user['cover_picture'] ?? ''}',
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.cover,
@@ -37,15 +103,15 @@ class UserProfileScreen extends StatelessWidget {
 
                 // Profile Image Positioned on Top
                 Positioned(
-                  bottom: -50, // Adjust this value to position the profile image
+                  bottom: -50,
                   child: Container(
                     width: 100,
                     height: 100,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Colors.white, // White border color
-                        width: 5, // Border thickness
+                        color: Colors.white,
+                        width: 5,
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -58,15 +124,15 @@ class UserProfileScreen extends StatelessWidget {
                     ),
                     child: CircleAvatar(
                       radius: 50,
-                      backgroundImage: user['profile_picture'] != null && user['profile_picture'] != ''
-                          ? CachedNetworkImageProvider(baseurl + user['profile_picture'])
+                      backgroundImage: widget.user['profile_picture'] != null && widget.user['profile_picture'] != ''
+                          ? CachedNetworkImageProvider(baseurl + widget.user['profile_picture'])
                           : const AssetImage('assets/placeholder.png') as ImageProvider,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 60), // Space for profile image overlap
+            const SizedBox(height: 60),
 
             // Name and Chat Button
             Row(
@@ -74,37 +140,37 @@ class UserProfileScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    user['name'] ?? 'No Name',
+                    widget.user['name'] ?? 'No Name',
                     style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                       color: Colors.black,
                     ),
-                    overflow: TextOverflow.ellipsis, // Handles long names
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-            ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatScreen(
-                  user1Id: user1Id, 
-                  user2Id: user2Id,),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatScreen(
+                          user1Id: widget.user1Id,
+                          user2Id: widget.user2Id,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.chat, size: 20),
+                  label: const Text('Chat'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.pinkAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
-              );
-            },
-            icon: const Icon(Icons.chat, size: 20),
-            label: const Text('Chat'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.pinkAccent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-
               ],
             ),
             const SizedBox(height: 8),
@@ -120,14 +186,14 @@ class UserProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              user['bio'] ?? 'No bio available',
+              widget.user['bio'] ?? 'No bio available',
               style: const TextStyle(fontSize: 16),
               textAlign: TextAlign.left,
             ),
             const SizedBox(height: 16),
 
             // Interests Section
-            if (user['interests'] != null && user['interests'].isNotEmpty)
+            if (widget.user['interests'] != null && widget.user['interests'].isNotEmpty)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -140,16 +206,18 @@ class UserProfileScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8.0,
-                    children: user['interests']
-                        .map<Widget>((interest) => Chip(
-                              label: Text(interest.toString()),
-                              backgroundColor: Colors.pinkAccent[100],
-                              labelStyle: TextStyle(color: Colors.white),
-                            ))
-                        .toList(),
-                  ),
+                  isLoading
+                      ? CircularProgressIndicator()
+                      : Wrap(
+                          spacing: 8.0,
+                          children: userInterests
+                              .map<Widget>((interest) => Chip(
+                                    label: Text(interest),
+                                    backgroundColor: Colors.pinkAccent[100],
+                                    labelStyle: TextStyle(color: Colors.white),
+                                  ))
+                              .toList(),
+                        ),
                 ],
               ),
             const SizedBox(height: 16),
@@ -164,10 +232,10 @@ class UserProfileScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _buildInfoRow(Icons.phone, 'Phone', user['phone_number']),
-            _buildInfoRow(Icons.date_range, 'Date of Birth', user['date_of_birth']),
-            _buildInfoRow(Icons.female, 'Gender', user['gender']),
-            _buildInfoRow(Icons.star, 'Profile Score', user['profile_score']),
+            _buildInfoRow(Icons.phone, 'Phone', widget.user['phone_number']),
+            _buildInfoRow(Icons.date_range, 'Date of Birth', widget.user['date_of_birth']),
+            _buildInfoRow(Icons.female, 'Gender', widget.user['gender']),
+            _buildInfoRow(Icons.star, 'Profile Score', widget.user['profile_score']),
           ],
         ),
       ),

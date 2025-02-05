@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'refresh_helper.dart'; // Import the helper
 import 'UserProfileScreen.dart';
+import 'ChatListScreen.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
@@ -489,45 +490,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // New method for Matches screen
-  // Widget _buildMatchesScreen() {
-  //   return Column(
-  //     children: [
-  //       // Header
-  //       Padding(
-  //         padding: const EdgeInsets.all(16.0),
-  //         child: Text(
-  //           'Your Matches',
-  //           style: TextStyle(
-  //             fontSize: 24,
-  //             fontWeight: FontWeight.bold,
-  //             color: Colors.grey[800],
-  //           ),
-  //         ),
-  //       ),
-  //       // Matches grid or list
-  //       Expanded(
-  //         child: GridView.builder(
-  //           padding: const EdgeInsets.all(16),
-  //           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-  //             crossAxisCount: 2,
-  //             childAspectRatio: 0.75,
-  //             crossAxisSpacing: 16,
-  //             mainAxisSpacing: 16,
-  //           ),
-  //           itemCount: _matches.length,
-  //           itemBuilder: (context, index) {
-  //             final match = _matches[index]['profile'];
-  //             return _buildMatchCard(match);
-  //           },
-  //         ),
-  //       ),
-  //     ],
-  //   );
-  // }
-
-
-
 Widget _buildMatchesScreen() {
   return DefaultTabController(
     length: 3, // Number of tabs
@@ -581,45 +543,88 @@ Widget _buildMatchesScreen() {
 // Matches Section
 // ................................................................
 
+Future<int> _fetchLoggedInUserId() async {
+  final url = 'http://192.168.1.76:8000/auth/user-details/';
+  try {
+    final response = await http.get(Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['user']['id']; // Extract and return the logged-in user's ID
+    } else {
+      throw Exception('Failed to fetch logged-in user details. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Error fetching logged-in user details: $e');
+  }
+}
 
 Widget _buildMatchesTabContent(String tabType) {
-  return FutureBuilder<List<dynamic>>(
-    future: _Matches(), // Fetch matches asynchronously
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        // Show loading spinner while fetching data
+  return FutureBuilder<int>(
+    future: _fetchLoggedInUserId(), // Fetch the logged-in user's ID
+    builder: (context, userIdSnapshot) {
+      if (userIdSnapshot.connectionState == ConnectionState.waiting) {
+        // Show loading spinner while fetching the logged-in user's ID
         return const Center(child: CircularProgressIndicator());
-      } else if (snapshot.hasError) {
-        // Show error message if fetching fails
+      } else if (userIdSnapshot.hasError) {
+        // Show error message if fetching the logged-in user's ID fails
         return Center(
           child: Text(
-            'Error: ${snapshot.error}',
+            'Error: ${userIdSnapshot.error}',
             style: const TextStyle(color: Colors.red),
           ),
         );
-      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-        // Show a message if no matches are found
+      } else if (!userIdSnapshot.hasData) {
+        // Show a message if the logged-in user's ID is not found
         return const Center(
-          child: Text('No matches found'),
+          child: Text('Unable to fetch logged-in user details'),
         );
       } else {
-        // Display matches in a vertical list
-        final matches = snapshot.data!;
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          itemCount: matches.length,
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width,
-                child: _buildMatchCard(matches[index]),
-              ),
-            );
+        // Once the logged-in user's ID is fetched, fetch matches
+        final loggedInUserId = userIdSnapshot.data!;
+        return FutureBuilder<List<dynamic>>(
+          future: _Matches(), // Fetch matches asynchronously
+          builder: (context, matchesSnapshot) {
+            if (matchesSnapshot.connectionState == ConnectionState.waiting) {
+              // Show loading spinner while fetching matches
+              return const Center(child: CircularProgressIndicator());
+            } else if (matchesSnapshot.hasError) {
+              // Show error message if fetching matches fails
+              return Center(
+                child: Text(
+                  'Error: ${matchesSnapshot.error}',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              );
+            } else if (!matchesSnapshot.hasData || matchesSnapshot.data!.isEmpty) {
+              // Show a message if no matches are found
+              return const Center(
+                child: Text('No matches found'),
+              );
+            } else {
+              // Display matches in a vertical list
+              final matches = matchesSnapshot.data!;
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                itemCount: matches.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width,
+                      child: _buildMatchCard(matches[index], loggedInUserId), // Pass logged-in user ID
+                    ),
+                  );
+                },
+              );
+            }
           },
         );
       }
-    }, 
+    },
   );
 }
 
@@ -627,7 +632,11 @@ Widget _buildMatchesTabContent(String tabType) {
 Future<Map<String, dynamic>> _fetchUserById(int userId) async {
   final url = 'http://192.168.1.76:8000/auth/api/users/$userId/';
   try {
-    final response = await http.get(Uri.parse(url));
+    final response = await http.get(Uri.parse(url),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
     if (response.statusCode == 200) {
       return json.decode(response.body);
     } else {
@@ -662,8 +671,8 @@ Future<List<Map<String, dynamic>>> _Matches() async {
         enrichedMatches.add({
           'user1': user1Details,
           'user2': user2Details,
-          'user1_id':match['user1'],
-          'user2_id':match['user2'],
+          'user1_id': match['user1'],
+          'user2_id': match['user2'],
           'created_at': match['created_at'],
           'match_id': match['id'],
         });
@@ -679,20 +688,41 @@ Future<List<Map<String, dynamic>>> _Matches() async {
 }
 
 // .....................................................................................
-Widget _buildMatchCard(Map<String, dynamic> match) {
+Widget _buildMatchCard(Map<String, dynamic> match, int loggedInUserId) {
+  // Determine which user is the logged-in user and which is the matched user
+  final bool isUser1LoggedIn = match['user1_id'] == loggedInUserId;
+  final Map<String, dynamic> loggedInUser = isUser1LoggedIn
+      ? match['user1']
+      : match['user2'];
+  final int matchedUserId = isUser1LoggedIn
+      ? match['user2_id']
+      : match['user1_id'];
+  final Map<String, dynamic> matchedUser = isUser1LoggedIn
+      ? match['user2']
+      : match['user1'];
+
   return Container(
     width: double.infinity,
     margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
     child: GestureDetector(
       onTap: () {
-        // Pass the entire user2 data to the UserProfileScreen
+        // Debugging: Print values to check for null
+        print('Logged-in User ID: $loggedInUserId');
+        print('Matched User ID: $matchedUserId');
+
+        if (loggedInUserId == null || matchedUserId == null) {
+          print('Error: Logged-in user ID or matched user ID is null');
+          return; // Prevent navigation if IDs are null
+        }
+
+        // Navigate to UserProfileScreen
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => UserProfileScreen(
-              user: match['user2'],
-               user1Id: match['user1_id'], // Pass user1 ID
-              user2Id: match['user2_id'], // Pass user2 ID
+              user: matchedUser,
+              user1Id: loggedInUserId, // Pass logged-in user ID
+              user2Id: matchedUserId, // Pass matched user ID
             ),
           ),
         );
@@ -712,13 +742,13 @@ Widget _buildMatchCard(Map<String, dynamic> match) {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // User 1 profile
+                      // Logged-in user profile
                       Column(
                         children: [
                           CircleAvatar(
                             radius: 35,
                             backgroundImage: CachedNetworkImageProvider(
-                              '$baseurl${match['user1']['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                              '$baseurl${loggedInUser['profile_picture']}' ?? 'https://via.placeholder.com/150',
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -739,18 +769,18 @@ Widget _buildMatchCard(Map<String, dynamic> match) {
                         size: 50,
                       ),
 
-                      // User 2 profile
+                      // Matched user profile
                       Column(
                         children: [
                           CircleAvatar(
                             radius: 35,
                             backgroundImage: CachedNetworkImageProvider(
-                              '$baseurl${match['user2']['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                              '$baseurl${matchedUser['profile_picture']}' ?? 'https://via.placeholder.com/150',
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            match['user2']['name'] ?? 'User 2',
+                            matchedUser['name'] ?? 'User 2',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
@@ -788,8 +818,6 @@ Widget _buildMatchCard(Map<String, dynamic> match) {
     ),
   );
 }
-
-
 
 Future<void> _deleteMatch(int matchId, BuildContext context) async {
   final url = '$baseurl/auth/matches/$matchId/remove/';
@@ -1265,11 +1293,9 @@ Container _buildSuggestedMatches() {
   }
 
   // Placeholder for Chat tab
-  Widget _buildChatScreen() {
-    return const Center(
-      child: Text('Chat Screen'),
-    );
-  }
+Widget _buildChatScreen() {
+  return ChatListScreen(); // This will render the list of all chats
+}
 
   // Add the missing profile screen method
  

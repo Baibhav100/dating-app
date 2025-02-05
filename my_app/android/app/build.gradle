@@ -1,3 +1,4 @@
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -6,10 +7,28 @@ plugins {
     id "com.google.gms.google-services"
 }
 
+// .......................................
+def keystorePropertiesFile = rootProject.file("key.properties")
+def keystoreProperties = new Properties()
+keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+
+// ..................................
 android {
-    namespace = "com.example.my_app" // Correct namespace, matches applicationId below
+    namespace = "com.adventurecode.testflique" // Correct namespace, matches applicationId below
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+
+    // .................................
+    signingConfigs {
+    release {
+        keyAlias keystoreProperties['keyAlias']
+        keyPassword keystoreProperties['keyPassword']
+        storeFile file(keystoreProperties['storeFile'])
+        storePassword keystoreProperties['storePassword']
+    }
+}
+    // ...................................
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -21,17 +40,28 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.my_app" // Must match the namespace
+        // applicationId = "com.example.my_app" // Must match the namespace
+        applicationId = "com.adventurecode.testflique" // Must match the namespace    
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // versionCode 2 // Update this to a new, unique version code
+        // versionName "1.0.1" // Increment version name if needed
         minSdkVersion 23
     }   
 
     buildTypes {
+
+        //    release {
+        //     signingConfig signingConfigs.release
+        //     shrinkResources true
+        //     minifyEnabled true
+        //     proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        // }
         release {
             signingConfig = signingConfigs.debug // Signing config for release, can be customized
+            
         }
     }
 }
@@ -40,4 +70,3 @@ flutter {
     source = "../.." // Make sure this path points correctly to the Flutter project
 }
 
-apply plugin: 'com.google.gms.google-services'  // Add this line
