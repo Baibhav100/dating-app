@@ -44,10 +44,10 @@ android {
         applicationId = "com.adventurecode.flique" // Must match the namespace    
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-        // versionCode 2 // Update this to a new, unique version code
-        // versionName "1.0.1" // Increment version name if needed
+        // versionCode = flutter.versionCode
+        // versionName = flutter.versionName
+        versionCode 2 // Update this to a new, unique version code
+        versionName "1.0.1" // Increment version name if needed
         minSdkVersion 23
     }   
 
