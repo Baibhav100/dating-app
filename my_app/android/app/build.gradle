@@ -1,4 +1,3 @@
-
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -46,13 +45,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         // versionCode = flutter.versionCode
         // versionName = flutter.versionName
-<<<<<<< HEAD
-        versionCode 2 // Update this to a new, unique version code
-        versionName "1.0.1" // Increment version name if needed
-=======
         versionCode 4 // Update this to a new, unique version code
         versionName "1.1.1" // Increment version name if needed
->>>>>>> main
         minSdkVersion 23
     }   
 
@@ -76,4 +70,3 @@ android {
 flutter {
     source = "../.." // Make sure this path points correctly to the Flutter project
 }
-
