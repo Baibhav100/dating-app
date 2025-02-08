@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 class ChatService {
   final int user1Id;
   final int user2Id;
@@ -21,24 +22,21 @@ class ChatService {
     });
   }
 
-  void sendMessage(String message) {
-    final payload = {
-      'message': message,
-      'image': null,
-      'sender_id': user1Id,
-      'receiver_id': user2Id,
-    };
-    _channel.sink.add(json.encode(payload));
-  }
+  void sendMessage(String message, {String? imageBase64}) {
+    if (_channel != null && _channel!.sink != null) {
+      final Map<String, dynamic> messageData = {
+        'message': message,
+        'userId': user1Id,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
 
-  void sendImage(String base64Image) {
-    final payload = {
-      'message': '',
-      'image': 'data:image/png;base64,$base64Image',
-      'sender_id': user1Id,
-      'receiver_id': user2Id,
-    };
-    _channel.sink.add(json.encode(payload));
+      // Add image data if present
+      if (imageBase64 != null) {
+        messageData['image'] = imageBase64;
+      }
+
+      _channel!.sink.add(jsonEncode(messageData));
+    }
   }
 
   void dispose() {

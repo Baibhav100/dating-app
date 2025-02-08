@@ -1,4 +1,3 @@
-
 plugins {
     id "com.android.application"
     id "kotlin-android"
@@ -71,4 +70,3 @@ android {
 flutter {
     source = "../.." // Make sure this path points correctly to the Flutter project
 }
-

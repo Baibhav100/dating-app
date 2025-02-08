@@ -689,41 +689,35 @@ Future<List<Map<String, dynamic>>> _Matches() async {
 }
 
 // .....................................................................................
+// .....................................................................................
 Widget _buildMatchCard(Map<String, dynamic> match, int loggedInUserId) {
-  // Determine which user is the logged-in user and which is the matched user
   final bool isUser1LoggedIn = match['user1_id'] == loggedInUserId;
-  final Map<String, dynamic> loggedInUser = isUser1LoggedIn
-      ? match['user1']
-      : match['user2'];
-  final int matchedUserId = isUser1LoggedIn
-      ? match['user2_id']
-      : match['user1_id'];
-  final Map<String, dynamic> matchedUser = isUser1LoggedIn
-      ? match['user2']
-      : match['user1'];
+  final Map<String, dynamic> loggedInUser = isUser1LoggedIn ? match['user1'] : match['user2'];
+  final int matchedUserId = isUser1LoggedIn ? match['user2_id'] : match['user1_id'];
+  final Map<String, dynamic> matchedUser = isUser1LoggedIn ? match['user2'] : match['user1'];
+
+  // Function to trim names if too long
+  String trimName(String name) {
+    return (name.length > 10) ? '${name.substring(0, 10)}…' : name;
+  }
 
   return Container(
     width: double.infinity,
     margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
     child: GestureDetector(
       onTap: () {
-        // Debugging: Print values to check for null
-        print('Logged-in User ID: $loggedInUserId');
-        print('Matched User ID: $matchedUserId');
-
         if (loggedInUserId == null || matchedUserId == null) {
           print('Error: Logged-in user ID or matched user ID is null');
-          return; // Prevent navigation if IDs are null
+          return;
         }
 
-        // Navigate to UserProfileScreen
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => UserProfileScreen(
               user: matchedUser,
-              user1Id: loggedInUserId, // Pass logged-in user ID
-              user2Id: matchedUserId, // Pass matched user ID
+              user1Id: loggedInUserId,
+              user2Id: matchedUserId,
             ),
           ),
         );
@@ -737,61 +731,58 @@ Widget _buildMatchCard(Map<String, dynamic> match, int loggedInUserId) {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // User profiles and love symbol
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Logged-in user profile
-                      Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 35,
-                            backgroundImage: CachedNetworkImageProvider(
-                              '$baseurl${loggedInUser['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                      Expanded(
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 35,
+                              backgroundImage: CachedNetworkImageProvider(
+                                '$baseurl${loggedInUser['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Me',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                            const SizedBox(height: 8),
+                            Text(
+                              'Me',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
 
-                      // Love symbol
-                      const Icon(
-                        Icons.favorite,
-                        color: Colors.pinkAccent,
-                        size: 50,
-                      ),
+                      // Love symbol centered
+                      const Spacer(),
+                      const Icon(Icons.favorite, color: Colors.pinkAccent, size: 50),
+                      const Spacer(),
 
                       // Matched user profile
-                      Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 35,
-                            backgroundImage: CachedNetworkImageProvider(
-                              '$baseurl${matchedUser['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                      Expanded(
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 35,
+                              backgroundImage: CachedNetworkImageProvider(
+                                '$baseurl${matchedUser['profile_picture']}' ?? 'https://via.placeholder.com/150',
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            matchedUser['name'] ?? 'User 2',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                            const SizedBox(height: 8),
+                            Text(
+                              trimName(matchedUser['name'] ?? 'User 2'),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 12),
                 ],
               ),
@@ -806,12 +797,8 @@ Widget _buildMatchCard(Map<String, dynamic> match, int loggedInUserId) {
               onPressed: () async {
                 await _deleteMatch(match['match_id'], context);
               },
-              icon: const Icon(
-                Icons.delete,
-                color: Colors.redAccent,
-                size: 30, // Adjust size as per your preference
-              ),
-              tooltip: 'Delete Match', // Optional tooltip on hover
+              icon: const Icon(Icons.delete, color: Colors.redAccent, size: 30),
+              tooltip: 'Delete Match',
             ),
           ),
         ],

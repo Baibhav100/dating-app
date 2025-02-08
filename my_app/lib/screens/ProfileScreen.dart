@@ -139,183 +139,311 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : userProfile != null
-              ? SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Profile Header Section
-                      Container(
-                        height: 230,
-                        child: Stack(
-                          alignment: Alignment.topLeft,
+              ? CustomScrollView(
+                  slivers: [
+                    // Profile Header with Cover Image and Profile Picture
+                    SliverAppBar(
+                      expandedHeight: 400,
+                      floating: false,
+                      pinned: true,
+                      backgroundColor: Colors.transparent,
+                      flexibleSpace: FlexibleSpaceBar(
+                        background: Stack(
+                          fit: StackFit.expand,
                           children: [
+                            // Cover Image with Hero animation
                             if (userProfile!['cover_picture'] != null)
-                              Container(
-                                height: 230,
-                                decoration: BoxDecoration(
-                                  image: DecorationImage(
-                                    image: NetworkImage('$baseurl${userProfile!['cover_picture']}'),
-                                    fit: BoxFit.cover,
-                                  ),
+                              Hero(
+                                tag: 'cover_${userProfile!['id']}',
+                                child: Image.network(
+                                  '$baseurl${userProfile!['cover_picture']}',
+                                  fit: BoxFit.cover,
                                 ),
                               ),
+                            // Multiple gradient overlays for better depth
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0.0),
+                                    Colors.black.withOpacity(0.3),
+                                    Colors.black.withOpacity(0.7),
+                                  ],
+                                  stops: [0.0, 0.5, 1.0],
+                                ),
+                              ),
+                            ),
+                            // Side gradients for depth
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.black.withOpacity(0.3),
+                                    Colors.transparent,
+                                    Colors.transparent,
+                                    Colors.black.withOpacity(0.3),
+                                  ],
+                                  stops: [0.0, 0.2, 0.8, 1.0],
+                                ),
+                              ),
+                            ),
+                            // Profile Picture and Name
                             Positioned(
-                              top: 110,
-                              left: 10,
-                              child: Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 5),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 50,
-                                  backgroundImage: userProfile!['profile_picture'] != null
-                                      ? NetworkImage('$baseurl${userProfile!['profile_picture']}')
-                                      : AssetImage('assets/placeholder.png') as ImageProvider,
-                                ),
+                              bottom: 20,
+                              left: 20,
+                              right: 20,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      // Profile picture with hero animation
+                                      Hero(
+                                        tag: 'profile_${userProfile!['id']}',
+                                        child: Container(
+                                          width: 100,
+                                          height: 100,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 3),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black26,
+                                                blurRadius: 10,
+                                                spreadRadius: 2,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ClipOval(
+                                            child: Image(
+                                              image: userProfile!['profile_picture'] != null
+                                                  ? NetworkImage('$baseurl${userProfile!['profile_picture']}')
+                                                  : AssetImage('assets/placeholder.png') as ImageProvider,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 20),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              userProfile!['name'] ?? 'No Name',
+                                              style: TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                                shadows: [
+                                                  Shadow(
+                                                    blurRadius: 10,
+                                                    color: Colors.black.withOpacity(0.5),
+                                                    offset: Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on, 
+                                                    color: Colors.white.withOpacity(0.9), 
+                                                    size: 16),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Location',
+                                                  style: TextStyle(
+                                                    color: Colors.white.withOpacity(0.9),
+                                                    fontSize: 16,
+                                                    shadows: [
+                                                      Shadow(
+                                                        blurRadius: 8,
+                                                        color: Colors.black.withOpacity(0.5),
+                                                        offset: Offset(0, 1),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
+                    ),
+
+                    // Profile Content
+                    SliverToBoxAdapter(
+                      child: Container(
+                        padding: EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              userProfile!['name'] ?? 'No Name',
-                              style: TextStyle(fontSize: 28, color: Colors.black87),
-                            ),
-                            SizedBox(height: 10),
-                            if (userProfile!['bio'] != null)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'About',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    userProfile!['bio'].toString(),
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
+                            // About Section
+                            if (userProfile!['bio'] != null) ...[
+                              Text(
+                                'About',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
                               ),
-                            SizedBox(height: 16),
-                            if (userInterests.isNotEmpty)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Interests',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
+                              SizedBox(height: 12),
+                              Container(
+                                padding: EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      spreadRadius: 0,
                                     ),
+                                  ],
+                                ),
+                                child: Text(
+                                  userProfile!['bio'].toString(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.black87,
+                                    height: 1.5,
                                   ),
-                                  SizedBox(height: 8),
-                                  Container(
-                                    constraints: BoxConstraints(
-                                      maxHeight: 200,
-                                    ),
-                                    child: SingleChildScrollView(
-                                      child: Wrap(
-                                        spacing: 8.0,
-                                        runSpacing: 4.0, // Allow items to wrap properly
-                                        children: userInterests.map((interest) {
-                                          return Chip(
-                                            label: Text(interest, style: TextStyle(color: Colors.white)),
-                                            backgroundColor: Colors.pinkAccent,
-                                          );
-                                        }).toList(),
+                                ),
+                              ),
+                              SizedBox(height: 24),
+                            ],
+
+                            // Interests Section
+                            if (userInterests.isNotEmpty) ...[
+                              Text(
+                                'Interests',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: userInterests.map((interest) {
+                                  return Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.pinkAccent.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.pinkAccent.withOpacity(0.3),
                                       ),
                                     ),
+                                    child: Text(
+                                      interest,
+                                      style: TextStyle(
+                                        color: Colors.pinkAccent,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              SizedBox(height: 24),
+                            ],
+
+                            // Basic Info Section
+                            Text(
+                              'Basic Info',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Container(
+                              padding: EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    spreadRadius: 0,
                                   ),
-                                  SizedBox(height: 16),
                                 ],
                               ),
-                            Text(
-                              'Other Information',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
+                              child: Column(
+                                children: [
+                                  _buildInfoRow(Icons.person, 'Gender', userProfile!['gender']),
+                                  Divider(height: 20),
+                                  _buildInfoRow(Icons.cake, 'Birthday', userProfile!['date_of_birth']),
+                                  Divider(height: 20),
+                                  _buildInfoRow(Icons.favorite, 'Likes', '${userProfile!['likes_received']}'),
+                                  Divider(height: 20),
+                                  _buildInfoRow(Icons.star, 'Profile Score', '${userProfile!['profile_score']}'),
+                                ],
                               ),
-                            ),
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.person, color: Colors.grey[700], size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Gender: ${userProfile!['gender']}',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today, color: Colors.grey[700], size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Date of Birth: ${userProfile!['date_of_birth']}',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.thumb_up, color: Colors.grey[700], size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Likes Received: ${userProfile!['likes_received']}',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.thumb_down, color: Colors.grey[700], size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Dislikes Received: ${userProfile!['dislikes_received']}',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.star, color: Colors.grey[700], size: 20),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Profile Score: ${userProfile!['profile_score']}',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                                ),
-                              ],
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 )
               : Center(child: Text('No profile details found.')),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.pinkAccent.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.pinkAccent, size: 20),
+        ),
+        SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
