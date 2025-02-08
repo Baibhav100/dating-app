@@ -46,25 +46,30 @@ android {
         targetSdk = flutter.targetSdkVersion
         // versionCode = flutter.versionCode
         // versionName = flutter.versionName
+<<<<<<< HEAD
         versionCode 2 // Update this to a new, unique version code
         versionName "1.0.1" // Increment version name if needed
+=======
+        versionCode 4 // Update this to a new, unique version code
+        versionName "1.1.1" // Increment version name if needed
+>>>>>>> main
         minSdkVersion 23
     }   
 
     buildTypes {
 
-        //    release {
-        //     signingConfig signingConfigs.release
-        //     shrinkResources true
-        //     minifyEnabled true
-        //     proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        // }
         release {
-            signingConfig = signingConfigs.debug // Signing config for release, can be customized
-            shrinkResources false
-            minifyEnabled false
-            
+            signingConfig signingConfigs.release
+            shrinkResources true
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        // release {
+        //     signingConfig = signingConfigs.debug // Signing config for release, can be customized
+        //     shrinkResources false
+        //     minifyEnabled false
+            
+        // }
     }
 }
 
