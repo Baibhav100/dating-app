@@ -328,144 +328,167 @@ void initState() {
 // Inside your build method
 @override
 Widget build(BuildContext context) {
-  return Scaffold(
-    body: SafeArea(
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-              : IndexedStack(
-                  index: _currentIndex,
+  return WillPopScope(
+    onWillPop: () async {
+      // Show a confirmation dialog
+      bool? shouldPop = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Exit App'),
+          content: Text('Do you want to exit the app?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Yes'),
+            ),
+          ],
+        ),
+      );
+      return shouldPop ?? false;
+    },
+    child: Scaffold(
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                : IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      // Home screen with refresh
+                      RefreshIndicator(
+                          onRefresh: () async {
+                            await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
+                            // You can also add other home-specific refresh logic here if needed
+                            await _fetchUserDetails();
+                            await _fetchMatches();
+                            await _fetchCreditScore();
+                          },
+                        child: _buildHomeScreen(),
+                      ),
+                      // Matches screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+                        child: _buildMatchesScreen(),
+                      ),
+                      // Chat screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onChatRefresh(context),
+                        child: _buildChatScreen(),
+                      ),
+                      // Profile screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onProfileRefresh(context),
+                        child: ProfileScreen(),
+                      ),
+                    ],
+                  ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: BottomNavigationBar(
+            items: [
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(Icons.favorite, 0),
+                label: 'Discover',
+              ),
+              BottomNavigationBarItem(
+                icon: Stack(
                   children: [
-                    // Home screen with refresh
-                    RefreshIndicator(
-                        onRefresh: () async {
-                          await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
-                          // You can also add other home-specific refresh logic here if needed
-                          await _fetchUserDetails();
-                          await _fetchMatches();
-                          await _fetchCreditScore();
-                        },
-                      child: _buildHomeScreen(),
-                    ),
-                    // Matches screen with refresh
-                    RefreshIndicator(
-                      onRefresh: () => RefreshHelper.onMatchesRefresh(context),
-                      child: _buildMatchesScreen(),
-                    ),
-                    // Chat screen with refresh
-                    RefreshIndicator(
-                      onRefresh: () => RefreshHelper.onChatRefresh(context),
-                      child: _buildChatScreen(),
-                    ),
-                    // Profile screen with refresh
-                    RefreshIndicator(
-                      onRefresh: () => RefreshHelper.onProfileRefresh(context),
-                      child: ProfileScreen(),
+                    _buildAnimatedIcon(Icons.people, 1),
+                    // Notification badge for new matches
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: const Text(
+                          '2', // Replace with actual count
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-    ),
-    bottomNavigationBar: Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+                label: 'Matches',
+              ),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    _buildAnimatedIcon(Icons.chat_bubble, 2),
+                    // Notification badge for unread messages
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: const Text(
+                          '5', // Replace with actual count
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                label: 'Messages',
+              ),
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(Icons.person, 3),
+                label: 'Profile',
+              ),
+            ],
+            currentIndex: _currentIndex,
+            selectedItemColor: Colors.pinkAccent,
+            unselectedItemColor: Colors.grey,
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BottomNavigationBar(
-          items: [
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(Icons.favorite, 0),
-              label: 'Discover',
-            ),
-            BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  _buildAnimatedIcon(Icons.people, 1),
-                  // Notification badge for new matches
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                      child: const Text(
-                        '2', // Replace with actual count
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              label: 'Matches',
-            ),
-            BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  _buildAnimatedIcon(Icons.chat_bubble, 2),
-                  // Notification badge for unread messages
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                      child: const Text(
-                        '5', // Replace with actual count
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              label: 'Messages',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(Icons.person, 3),
-              label: 'Profile',
-            ),
-          ],
-          currentIndex: _currentIndex,
-          selectedItemColor: Colors.pinkAccent,
-          unselectedItemColor: Colors.grey,
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
         ),
       ),
     ),
@@ -529,7 +552,7 @@ Widget _buildMatchesScreen() {
                 children: [
                   _buildMatchesTabContent('matches'), // Matches tab
                   _buildMatchesTabContent('likes'), // Likes tab
-                  _buildMatchesTabContent('whoLikedMe'), // Who Liked Me tab
+                  _buildWhoLikedMeTabContent('whoLikedMe'), // Who Liked Me tab
                 ],
               ),
             ),
@@ -627,6 +650,227 @@ Widget _buildMatchesTabContent(String tabType) {
       }
     },
   );
+}
+
+// build WhoLkedMetab
+
+Future<List<Map<String, dynamic>>> _fetchLikedByUsers() async {
+  try {
+    final response = await http.get(
+      Uri.parse('http://192.168.1.76:8000/auth/liked-by/'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      return List<Map<String, dynamic>>.from(data['liked_by']);
+    } else {
+      throw Exception('Failed to fetch liked-by users');
+    }
+  } catch (e) {
+    throw Exception('Error: $e');
+  }
+}
+
+Future<Map<String, dynamic>> _fetchUserwholiked(int userId) async {
+  try {
+    final response = await http.get(
+      Uri.parse('http://192.168.1.76:8000/auth/api/users/$userId/'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to fetch user details');
+    }
+  } catch (e) {
+    throw Exception('Error: $e');
+  }
+}
+
+Widget _buildWhoLikedMeTabContent(String tabType) {
+  return FutureBuilder<List<Map<String, dynamic>>>(
+    future: _fetchLikedByUsers(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      } else if (snapshot.hasError) {
+        return Center(
+          child: Text(
+            'Error: ${snapshot.error}',
+            style: const TextStyle(color: Colors.red),
+          ),
+        );
+      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        return const Center(
+          child: Text('No one has liked your profile yet'),
+        );
+      } else {
+        final likedByUsers = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          itemCount: likedByUsers.length,
+          itemBuilder: (context, index) {
+            final user = likedByUsers[index];
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _fetchUserwholiked(user['swiper']),
+              builder: (context, userDetailsSnapshot) {
+                if (userDetailsSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    child: Card(
+                      child: ListTile(
+                        leading: CircularProgressIndicator(),
+                        title: Text('Loading...'),
+                      ),
+                    ),
+                  );
+                }
+
+                final userDetails = userDetailsSnapshot.data ?? {};
+                final profilePicUrl = userDetails['profile_picture'] != null
+                    ? 'http://192.168.1.76:8000${userDetails['profile_picture']}'
+                    : null;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Profile Image Section
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                              child: profilePicUrl != null
+                                  ? CachedNetworkImage(
+                                      imageUrl: profilePicUrl,
+                                      height: 200,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        height: 200,
+                                        color: Colors.grey[200],
+                                        child: const Center(child: CircularProgressIndicator()),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        height: 200,
+                                        color: Colors.grey[200],
+                                        child: const Icon(Icons.person, size: 50),
+                                      ),
+                                    )
+                                  : Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.person, size: 50),
+                                    ),
+                            ),
+                          ],
+                        ),
+                        // User Details Section
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          userDetails['name'] ?? user['swiper_username'],
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        if (userDetails['bio'] != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              userDetails['bio'],
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.favorite,
+                                      color: Colors.pinkAccent,
+                                      size: 32,
+                                    ),
+                                    onPressed: () {
+                                      handleSwipe(
+                                        swipedUserId: user['swiper'],
+                                        swipedOnId: _currentUserId,
+                                        swipeType: 'like',
+                                      );
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('You liked ${userDetails['name'] ?? user['swiper_username']} back!'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Liked you on ${_formatTimestamp(user['timestamp'])}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      }
+    },
+  );
+}
+
+String _formatTimestamp(String timestamp) {
+  final DateTime dateTime = DateTime.parse(timestamp);
+  final DateTime localDateTime = dateTime.toLocal();
+  return '${localDateTime.day}/${localDateTime.month}/${localDateTime.year}';
 }
 
 // fetching user by id
