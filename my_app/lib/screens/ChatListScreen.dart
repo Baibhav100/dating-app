@@ -29,7 +29,7 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   List<Map<String, dynamic>> chatSessions = [];
-  final String baseUrl = "http://192.168.1.76:8000";
+  final String baseUrl = "http://192.168.1.241:8000";
   bool _isLoading = true;
   late Stream<dynamic> _messageStream;
   Map<String, int> unreadCounts = {};

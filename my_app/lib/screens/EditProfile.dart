@@ -22,7 +22,7 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final String _baseURL = 'http://192.168.1.76:8000';
+  final String _baseURL = 'http://192.168.1.241:8000';
 
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
