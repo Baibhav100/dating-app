@@ -36,12 +36,14 @@ class CreditPackage {
 
 // Model class for Subscription Plan
 class SubscriptionPlan {
+  final String id;
   final String name;
   final String price;
   final int durationDays;
   final String details;
 
   SubscriptionPlan({
+    required this.id,
     required this.name,
     required this.price,
     required this.durationDays,
@@ -50,6 +52,7 @@ class SubscriptionPlan {
 
   factory SubscriptionPlan.fromJson(Map<String, dynamic> json) {
     return SubscriptionPlan(
+      id: json['id'] ?? '',
       name: json['name'] ?? '',
       price: json['price'] ?? '',
       durationDays: json['duration_days'] ?? 0,
@@ -69,7 +72,7 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
   int _availableCredits = 500;
   int _selectedCreditPlan = 0;  // Separate variable for Credit Package selection
   int _selectedSubscriptionPlan = 0;  // Separate variable for Subscription Plan selection
-  String _currentPlan = "None";
+  List<dynamic> _currentPlan = [];
   String _currentPlanDetails = "No plan activated.";
   List<CreditPackage> _creditPackages = [];
   bool _isLoadingPackages = true;
@@ -92,40 +95,58 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
   }
   bool _isPurchaseProcessed = false;
   Future<void> _initializeBilling() async {
-    // Check if Google Play Billing is available
-    final bool available = await InAppPurchase.instance.isAvailable();
-    setState(() {
-      _isAvailable = available;
-    });
-
-    if (_isAvailable) {
-      // Fetch the product details from Google Play Console
-      final Set<String> ids = {'sp50', 'ep200', 'vipp500'}; // Add your product IDs
-      ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails(ids);
-
-      if (response.error != null) {
-        return;
-      }
-
-      // Convert the fetched products into CreditPackage objects
+    try {
+      print("Checking if Google Play Billing is available...");
+      final bool available = await InAppPurchase.instance.isAvailable();
+      
       setState(() {
-        _creditPackages = response.productDetails.map((product) {
-          String cleanTitle = product.title.replaceAll(RegExp(r'\(.*\)'), '').trim();
-          return CreditPackage(
-            id: product.id,  // Include the product ID here
-            name: cleanTitle,
-            price: product.price,
-            credits: int.tryParse(product.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
-            details: product.description,
-          );
-        }).toList();
-        _isLoadingPackages = false;
+        _isAvailable = available;
       });
 
-    } else {
-      print("Google Play Billing is not available.");
+      print("Billing availability: $_isAvailable");
+
+      if (_isAvailable) {
+        // Define product IDs
+        final Set<String> ids = {'sp50', 'ep200', 'vipp500'}; 
+        print("Querying product details for IDs: $ids");
+
+        ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails(ids);
+
+        if (response.error != null) {
+          print("Error fetching product details: ${response.error}");
+          return;
+        }
+
+        print("Fetched product details successfully. Count: ${response.productDetails.length}");
+
+        // Convert the fetched products into CreditPackage objects
+        setState(() {
+          _creditPackages = response.productDetails.map((product) {
+            print("Processing product: ${product.id} - ${product.title} - ${product.price}");
+
+            String cleanTitle = product.title.replaceAll(RegExp(r'\(.*\)'), '').trim();
+            return CreditPackage(
+              id: product.id,  // Include the product ID here
+              name: cleanTitle,
+              price: product.price,
+              credits: int.tryParse(product.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
+              details: product.description,
+            );
+          }).toList();
+          _isLoadingPackages = false;
+        });
+
+        print("Final credit packages: $_creditPackages");
+
+      } else {
+        print("Google Play Billing is not available.");
+      }
+    } catch (e, stacktrace) {
+      print("Error occurred while initializing billing: $e");
+      print("Stacktrace: $stacktrace");
     }
   }
+
 
   Future<void> _fetchUserId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -139,7 +160,7 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
 
   Future<void> _fetchCurrentPlan() async {
     try {
-      print("Starting to fetch current plan...");
+      print("Starting to fetch current plan...gfgfgfg");
 
       setState(() {
         _isLoadingSubscriptions = true;
@@ -170,19 +191,15 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        
         if (data.isNotEmpty) {
-          final currentPlan = data[0]; // Assuming there's only one record in the response
           final data_credit = json.decode(response_credits.body);
           setState(() {
-            _currentPlan = '${currentPlan['subscription_name']}';
-            _currentPlanDetails = 'Expires at: ${currentPlan['end_date']}';
+            _currentPlan = data;  // Store all plans in a list (make sure _currentPlans is declared in your state)
             _availableCredits = data_credit["total_credits"];
             _isLoadingSubscriptions = false;
           });
         } else {
           setState(() {
-            _currentPlan = "None";
             _currentPlanDetails = "No active subscription found";
             _isLoadingSubscriptions = false;
           });
@@ -227,12 +244,13 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
       if (response.productDetails.isEmpty) {
         throw Exception('No subscription plans found. Please check your product IDs.');
       }
-      print("this is the response : ${response.productDetails}");
       // Map the response to SubscriptionPlan models
       setState(() {
         _subscriptionPlans = response.productDetails.map((product) {
+          String cleanTitle = product.title.replaceAll(RegExp(r'\(.*\)'), '').trim();
           return SubscriptionPlan(
-            name: product.id,
+            id: product.id,  // Include the product ID here
+            name: cleanTitle,
             price: product.price,
             durationDays: _extractDurationFromId(product.id), // Optional dynamic duration extraction
             details: product.description,
@@ -242,12 +260,12 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
       });
 
       // Print subscription products for debugging
-      response.productDetails.forEach((product) {
-        print('Product ID: ${product.id}');
-        print('Title: ${product.title}');
-        print('Price: ${product.price}');
-        print('Description: ${product.description}');
-      });
+      // response.productDetails.forEach((product) {
+      //   print('Product ID: ${product.id}');
+      //   print('Title: ${product.title}');
+      //   print('Price: ${product.price}');
+      //   print('Description: ${product.description}');
+      // });
 
     } catch (e) {
       setState(() {
@@ -441,10 +459,10 @@ Future<void> _purchaseCreditPackage(CreditPackage package) async {
 
 Future<void> _purchaseSubscriptionPlan(SubscriptionPlan plan) async {
   try {
-    print('Attempting to purchase subscription with ID: ${plan.name}');
+    print('Attempting to purchase subscription with ID: ${plan.id}');
     
     // Query product details from Google Play Console using the plan name as the ID
-    final ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails({plan.name});
+    final ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails({plan.id});
     
     print('Query completed. Found products: ${response.productDetails.length}');
     print('Not found product IDs: ${response.notFoundIDs}');
@@ -644,50 +662,58 @@ Future<void> _purchaseSubscriptionPlan(SubscriptionPlan plan) async {
       }).toList(),
     );
   }
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: Text("Add Credits and Subscription Plans"),
+    ),
+    body: SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Display current active plan
+            Text(
+              'Active Plans:',  // Static title for current plan
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            
+            // Check if _currentPlan is not null or empty before rendering
+            _currentPlan != null && _currentPlan.isNotEmpty
+                ? Column(
+                    children: _currentPlan.map<Widget>((plan) {
+                      // Debugging statement to print the full plan
+                      print("Received plan data: $plan");
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Add Credits and Subscription Plans"),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Current Plan: $_currentPlan',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text(_currentPlanDetails),
-              SizedBox(height: 20),
-              _buildPlanCard('Subscription Plans', 'Choose your subscription plan', _buildSubscriptionContent()),
-              SizedBox(height: 20),
-              _buildPlanCard('Credit Packages', 'Choose your credit package', _buildPackagesContent()),
-              SizedBox(height: 20),
-              TextField(
-                controller: _creditController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Enter Credit Amount',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _addCredits,
-                child: _isLoading
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text('Add Credits'),
-              ),
-            ],
-          ),
+                      return ListTile(
+                        title: Text(plan['subscription_name'] ?? 'No Name'),  // Display subscription name
+                        subtitle: Text(
+                          'Start Date: ${plan['start_date']}\nEnd Date: ${plan['end_date']}',
+                        ),  // Display start and end dates
+                      );
+                    }).toList(),
+                  )
+                : Text(_currentPlanDetails), // Show a message if no plans available
+            SizedBox(height: 20),
+
+            // Display subscription plans
+            _buildPlanCard(
+              'Subscription Plans', 
+              'Choose your subscription plan', 
+              _buildSubscriptionContent(),
+            ),
+            SizedBox(height: 20),
+
+            // Display credit packages content
+            _buildPackagesContent(), // Add this line to display credit packages
+          ],
         ),
       ),
-    );
-  }
-  
+    ),
+  );
+}
+
 }

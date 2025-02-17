@@ -68,6 +68,7 @@ class _HomePageState extends State<HomePage> {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print(data['matches']);
         return data['matches'];
       } else if (response.statusCode == 401) {
         // Token expired, try refreshing
@@ -545,7 +546,7 @@ Widget _buildMatchesScreen() {
 // ................................................................
 
 Future<int> _fetchLoggedInUserId() async {
-  final url = 'http://192.168.1.76:8000/auth/user-details/';
+  final url = 'http://192.168.1.241:8000/auth/user-details/';
   try {
     final response = await http.get(Uri.parse(url),
       headers: {
@@ -634,7 +635,7 @@ Widget _buildMatchesTabContent(String tabType) {
 Future<List<Map<String, dynamic>>> _fetchLikedByUsers() async {
   try {
     final response = await http.get(
-      Uri.parse('http://192.168.1.76:8000/auth/liked-by/'),
+      Uri.parse('http://192.168.1.241:8000/auth/liked-by/'),
       headers: {
         'Authorization': 'Bearer $accessToken',
         'Content-Type': 'application/json',
@@ -655,7 +656,7 @@ Future<List<Map<String, dynamic>>> _fetchLikedByUsers() async {
 Future<Map<String, dynamic>> _fetchUserwholiked(int userId) async {
   try {
     final response = await http.get(
-      Uri.parse('http://192.168.1.76:8000/auth/api/users/$userId/'),
+      Uri.parse('http://192.168.1.241:8000/auth/api/users/$userId/'),
       headers: {
         'Authorization': 'Bearer $accessToken',
         'Content-Type': 'application/json',
@@ -713,7 +714,7 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
 
                 final userDetails = userDetailsSnapshot.data ?? {};
                 final profilePicUrl = userDetails['profile_picture'] != null
-                    ? 'http://192.168.1.76:8000${userDetails['profile_picture']}'
+                    ? 'http://192.168.1.241:8000${userDetails['profile_picture']}'
                     : null;
 
                 return Padding(
@@ -852,7 +853,7 @@ String _formatTimestamp(String timestamp) {
 
 // fetching user by id
 Future<Map<String, dynamic>> _fetchUserById(int userId) async {
-  final url = 'http://192.168.1.76:8000/auth/api/users/$userId/';
+  final url = 'http://192.168.1.241:8000/auth/api/users/$userId/';
   try {
     final response = await http.get(Uri.parse(url),
       headers: {
