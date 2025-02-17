@@ -29,7 +29,7 @@ class ChatListScreen extends StatefulWidget {
 
 class _ChatListScreenState extends State<ChatListScreen> {
   List<Map<String, dynamic>> chatSessions = [];
-  final String baseUrl = "http://192.168.1.76:8000";
+  final String baseUrl = "http://192.168.1.241:8000";
   bool _isLoading = true;
   late Stream<dynamic> _messageStream;
   Map<String, int> unreadCounts = {};
@@ -151,33 +151,33 @@ class _ChatListScreenState extends State<ChatListScreen> {
       if (accessToken == null) return;
     }
 
-    for (var chat in chatSessions) {
-      try {
-        final response = await http.get(
-          Uri.parse('$baseUrl/api/messages/unread/${chat['user1Id']}/${chat['user2Id']}/'),
-          headers: {
-            'Authorization': 'Bearer $accessToken',
-            'Content-Type': 'application/json',
-          },
-        );
+    // for (var chat in chatSessions) {
+    //   try {
+    //     final response = await http.get(
+    //       Uri.parse('$baseUrl/api/messages/unread/${chat['user1Id']}/${chat['user2Id']}/'),
+    //       headers: {
+    //         'Authorization': 'Bearer $accessToken',
+    //         'Content-Type': 'application/json',
+    //       },
+    //     );
 
-        if (response.statusCode == 200) {
-          var data = json.decode(response.body);
-          int unreadCount = data['unread_count'] ?? 0;
+    //     if (response.statusCode == 200) {
+    //       var data = json.decode(response.body);
+    //       int unreadCount = data['unread_count'] ?? 0;
           
-          if (!mounted) return;
+    //       if (!mounted) return;
           
-          setState(() {
-            String chatKey = '${chat['user1Id']}_${chat['user2Id']}';
-            if (_currentChatId != chatKey) {
-              unreadCounts[chatKey] = unreadCount;
-            }
-          });
-        }
-      } catch (e) {
-        print('Error checking new messages: $e');
-      }
-    }
+    //       setState(() {
+    //         String chatKey = '${chat['user1Id']}_${chat['user2Id']}';
+    //         if (_currentChatId != chatKey) {
+    //           unreadCounts[chatKey] = unreadCount;
+    //         }
+    //       });
+    //     }
+    //   } catch (e) {
+    //     print('Error checking new messages: $e');
+    //   }
+    // }
   }
 
   void _markMessagesAsRead(int user1Id, int user2Id) async {
