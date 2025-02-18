@@ -6,6 +6,7 @@ import 'ProfileScreen.dart';
 import 'Welcome.dart';
 import 'login_screen.dart';
 import 'dart:convert';
+import 'Boosted_profiles.dart'; // Ensure this file contains the BoostedProfilesScreen method
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -13,6 +14,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'refresh_helper.dart'; // Import the helper
 import 'UserProfileScreen.dart';
 import 'package:my_app/screens/add_credits_screen.dart';
+import 'package:flutter/services.dart'; // Add this import
 import 'ChatListScreen.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
@@ -27,7 +29,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int _currentIndex = 0;
   int _currentUserId=0;
   bool _isLoading = false;
@@ -47,6 +49,8 @@ class _HomePageState extends State<HomePage> {
   String? _userEmail;
   String? _profilePicture;
   int? _creditScore;// Initialize with a default value
+
+   late TabController _tabController;
 
   // Function to fetch matches from the API
   Future<List<dynamic>> _fetchMatches() async {
@@ -92,10 +96,10 @@ class _HomePageState extends State<HomePage> {
 
       if (accessToken == null && refreshToken != null) {
         // Try to refresh the token if access token is missing but we have refresh token
-        accessToken = refreshToken;
+        accessToken = await _refreshAccessToken(refreshToken!);
       }
     } catch (e) {
-      print('Error loading tokens: $e');
+      debugPrint('Error loading tokens: $e');
     }
   }
 
@@ -118,17 +122,17 @@ class _HomePageState extends State<HomePage> {
         _creditScore = data['total_credits']; // Update the credit score
       });
     } else {
-      print('Failed to fetch credit score: ${response.statusCode}');
+      debugPrint('Failed to fetch credit score: ${response.statusCode}');
     }
   } catch (e) {
-    print('Error fetching credit score: $e');
+    debugPrint('Error fetching credit score: $e');
   }
 }
 
   Future<String> _refreshAccessToken(String refreshToken) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseurl/auth/refresh/'),
+        Uri.parse('$baseurl/api/token/refresh/'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'refresh_token': refreshToken}),
       );
@@ -142,8 +146,8 @@ class _HomePageState extends State<HomePage> {
         throw Exception('Failed to refresh token');
       }
     } catch (e) {
-      print('Error refreshing token: $e');
-      throw e;
+      debugPrint('Error refreshing token: $e');
+      rethrow;
     }
   }
 
@@ -179,6 +183,13 @@ class _HomePageState extends State<HomePage> {
 void initState() {
   super.initState();
   // Initialize with passed tokens if available
+  _tabController = TabController(length: 3, vsync: this);
+  
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    systemNavigationBarColor: const Color.fromARGB(255, 250, 16, 106), // Set the background color to red
+    systemNavigationBarIconBrightness: Brightness.light, // Set the icon brightness to light
+  ));
+
   if (widget.accessToken != null && widget.refreshToken != null) {
     accessToken = widget.accessToken;
     refreshToken = widget.refreshToken;
@@ -209,7 +220,6 @@ void initState() {
   }
 }
 
-
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
@@ -221,257 +231,110 @@ void initState() {
   }
 
   // Function to show the filter bottom sheet
-  void _showFilterScreen() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        double localAge = _age; // Create local copies of the state variables
-        double localDistance = _distance;
+  // void _showFilterScreen() {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     builder: (BuildContext context) {
+  //       double localAge = _age; // Create local copies of the state variables
+  //       double localDistance = _distance;
 
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setModalState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Filter Options',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+  //       return Padding(
+  //         padding: const EdgeInsets.all(16.0),
+  //         child: StatefulBuilder(
+  //           builder: (BuildContext context, StateSetter setModalState) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               children: [
+  //                 const Text(
+  //                   'Filter Options',
+  //                   style: TextStyle(
+  //                     fontSize: 18,
+  //                     fontWeight: FontWeight.bold,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(height: 16),
 
-                  // Interested In dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'Interested In'),
-                    items: ['Option 1', 'Option 2', 'Option 3']
-                        .map((String value) {
-                      return DropdownMenuItem<String>(
-                          value: value, child: Text(value));
-                    }).toList(),
-                    onChanged: (String? value) {
-                      // Handle the change
-                    },
-                  ),
-                  const SizedBox(height: 16),
+  //                 // Interested In dropdown
+  //                 DropdownButtonFormField<String>(
+  //                   decoration: const InputDecoration(labelText: 'Interested In'),
+  //                   items: ['Option 1', 'Option 2', 'Option 3']
+  //                       .map((String value) {
+  //                     return DropdownMenuItem<String>(
+  //                         value: value, child: Text(value));
+  //                   }).toList(),
+  //                   onChanged: (String? value) {
+  //                     // Handle the change
+  //                   },
+  //                 ),
+  //                 const SizedBox(height: 16),
 
-                  // Age Slider
-                  const Text(
-                    'Age',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  Slider(
-                    value: localAge,
-                    min: 18,
-                    max: 100,
-                    divisions: 82,
-                    label: localAge.round().toString(),
-                    onChanged: (double value) {
-                      setModalState(() {
-                        localAge = value;
-                      });
-                    },
-                  ),
-                  Text(
-                    'Age: ${localAge.round()} years',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
+  //                 // Age Slider
+  //                 const Text(
+  //                   'Age',
+  //                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  //                 ),
+  //                 Slider(
+  //                   value: localAge,
+  //                   min: 18,
+  //                   max: 100,
+  //                   divisions: 82,
+  //                   label: localAge.round().toString(),
+  //                   onChanged: (double value) {
+  //                     setModalState(() {
+  //                       localAge = value;
+  //                     });
+  //                   },
+  //                 ),
+  //                 Text(
+  //                   'Age: ${localAge.round()} years',
+  //                   style: const TextStyle(fontSize: 14),
+  //                 ),
+  //                 const SizedBox(height: 16),
 
-                  // Distance Slider
-                  const Text(
-                    'Distance (in km)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  Slider(
-                    value: localDistance,
-                    min: 1,
-                    max: 100,
-                    divisions: 100,
-                    label: localDistance.round().toString(),
-                    onChanged: (double value) {
-                      setModalState(() {
-                        localDistance = value;
-                      });
-                    },
-                  ),
-                  Text(
-                    'Distance: ${localDistance.round()} km',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
+  //                 // Distance Slider
+  //                 const Text(
+  //                   'Distance (in km)',
+  //                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+  //                 ),
+  //                 Slider(
+  //                   value: localDistance,
+  //                   min: 1,
+  //                   max: 100,
+  //                   divisions: 100,
+  //                   label: localDistance.round().toString(),
+  //                   onChanged: (double value) {
+  //                     setModalState(() {
+  //                       localDistance = value;
+  //                     });
+  //                   },
+  //                 ),
+  //                 Text(
+  //                   'Distance: ${localDistance.round()} km',
+  //                   style: const TextStyle(fontSize: 14),
+  //                 ),
+  //                 const SizedBox(height: 16),
 
-                  // Apply filter button
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        // Update the parent state
-                        _age = localAge;
-                        _distance = localDistance;
-                      });
-                      Navigator.pop(context); // Close the filter screen
-                    },
-                    child: const Text('Apply Filter'),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-// Inside your build method
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: SafeArea(
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-              : IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    // Home screen with refresh
-                    RefreshIndicator(
-                        onRefresh: () async {
-                          await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
-                          // You can also add other home-specific refresh logic here if needed
-                          await _fetchUserDetails();
-                          await _fetchMatches();
-                          await _fetchCreditScore();
-                        },
-                      child: _buildHomeScreen(),
-                    ),
-                    // Matches screen with refresh
-                    RefreshIndicator(
-                      onRefresh: () => RefreshHelper.onMatchesRefresh(context),
-                      child: _buildMatchesScreen(),
-                    ),
-                    // Chat screen with refresh
-                    RefreshIndicator(
-                      onRefresh: () => RefreshHelper.onChatRefresh(context),
-                      child: _buildChatScreen(),
-                    ),
-                    // Profile screen with refresh
-                    RefreshIndicator(
-                      onRefresh: () => RefreshHelper.onProfileRefresh(context),
-                      child: ProfileScreen(),
-                    ),
-                  ],
-                ),
-    ),
-    bottomNavigationBar: Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BottomNavigationBar(
-          items: [
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(Icons.favorite, 0),
-              label: 'Discover',
-            ),
-            BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  _buildAnimatedIcon(Icons.people, 1),
-                  // Notification badge for new matches
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                      child: const Text(
-                        '2', // Replace with actual count
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              label: 'Matches',
-            ),
-            BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  _buildAnimatedIcon(Icons.chat_bubble, 2),
-                  // Notification badge for unread messages
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                      child: const Text(
-                        '5', // Replace with actual count
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              label: 'Messages',
-            ),
-            BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(Icons.person, 3),
-              label: 'Profile',
-            ),
-          ],
-          currentIndex: _currentIndex,
-          selectedItemColor: Colors.pinkAccent,
-          unselectedItemColor: Colors.grey,
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-        ),
-      ),
-    ),
-  );
-}
+  //                 // Apply filter button
+  //                 ElevatedButton(
+  //                   onPressed: () {
+  //                     setState(() {
+  //                       // Update the parent state
+  //                       _age = localAge;
+  //                       _distance = localDistance;
+  //                     });
+  //                     Navigator.pop(context); // Close the filter screen
+  //                   },
+  //                   child: const Text('Apply Filter'),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
 
   Widget _buildAnimatedIcon(IconData icon, int index) {
@@ -529,7 +392,7 @@ Widget _buildMatchesScreen() {
               child: TabBarView(
                 children: [
                   _buildMatchesTabContent('matches'), // Matches tab
-                  _buildMatchesTabContent('likes'), // Likes tab
+                  _buildLikesTabContent('likes'), // Likes tab
                   _buildWhoLikedMeTabContent('whoLikedMe'), // Who Liked Me tab
                 ],
               ),
@@ -629,6 +492,104 @@ Widget _buildMatchesTabContent(String tabType) {
     },
   );
 }
+
+Widget _buildLikesTabContent(String tabType) {
+  return FutureBuilder<List<Map<String, dynamic>>>(
+    future: _fetchLikedUsers(), // Fetch liked users asynchronously
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        // Show loading spinner while fetching liked users
+        return const Center(child: CircularProgressIndicator());
+      } else if (snapshot.hasError) {
+        // Show error message if fetching liked users fails
+        return Center(
+          child: Text(
+            'Error: ${snapshot.error}',
+            style: const TextStyle(color: Colors.red),
+          ),
+        );
+      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        // Show a message if no liked users are found
+        return const Center(
+          child: Text('No liked users found'),
+        );
+      } else {
+        // Display liked users in a vertical list
+        final likedUsers = snapshot.data!;
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          itemCount: likedUsers.length,
+          itemBuilder: (context, index) {
+            final user = likedUsers[index];
+            return FutureBuilder<Map<String, dynamic>>(
+              future: _fetchUserById(user['swiped_on_user_id']),
+              builder: (context, userDetailsSnapshot) {
+                if (userDetailsSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                    child: Card(
+                      child: ListTile(
+                        leading: CircularProgressIndicator(),
+                        title: Text('Loading...'),
+                      ),
+                    ),
+                  );
+                }
+
+                final userDetails = userDetailsSnapshot.data ?? {};
+                final profilePicUrl = userDetails['profile_picture'] != null
+                    ? 'http://192.168.1.241:8000${userDetails['profile_picture']}'
+                    : null;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: profilePicUrl != null
+                            ? NetworkImage(profilePicUrl)
+                            : null,
+                      ),
+                      title: Text(user['swiped_on_name']),
+                      subtitle: Text('Liked on: ${_formatTimestamp(user['timestamp'])}'),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      }
+    },
+  );
+}
+
+Future<List<Map<String, dynamic>>> _fetchLikedUsers() async {
+  try {
+    final response = await http.get(
+      Uri.parse('http://192.168.1.241:8000/auth/likes/'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      return List<Map<String, dynamic>>.from(data);
+    } else {
+      throw Exception('Failed to fetch liked users');
+    }
+  } catch (e) {
+    throw Exception('Error: $e');
+  }
+}
+
+
 
 // build WhoLkedMetab
 
@@ -1060,132 +1021,340 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
 }
 // Home tab with header
 Widget _buildHomeScreen() {
-  return SingleChildScrollView(  // Make the entire screen scrollable
-    child: Column(
+    return Column(
       children: [
-        // Header with Circular Image and Name
         Container(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
             children: [
-              // User Info and Notification Section
-              Row(
+              CircleAvatar(
+                radius: 25,
+                backgroundImage: _profilePicture != null
+                    ? NetworkImage('$baseurl${_profilePicture}')
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Circular Image
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundImage: _profilePicture != null
-                        ? NetworkImage('$baseurl${_profilePicture}')
-                        : null,
-                    backgroundColor: Colors.grey[200],
-                    child: _profilePicture == null
-                        ? Icon(Icons.person, color: Colors.grey[400])
-                        : null,
+                  Text(
+                    _creditScore != null
+                        ? 'Credits: $_creditScore'
+                        : 'Loading...', // Display the credit score
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
                   ),
-                  const SizedBox(width: 16),
-                  // User Details
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _userName ?? 'Loading...', // Display the user's name
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color.fromARGB(255, 36, 35, 35),
-                        ),
-                      ),
-                      Text(
-                        _userEmail ?? 'Loading...', // Display the user's email
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Color.fromARGB(179, 59, 58, 58),
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            _creditScore != null
-                                ? 'Credits: $_creditScore'
-                                : 'Loading...', // Display the credit score
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green,
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.add, // Plus icon
-                              color: Colors.green,
-                            ),
-                            onPressed: () {
-                              // Navigate to the AddCreditsScreen
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => AddCreditsScreen()),
-                              );
-                            },
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                  const Spacer(),
-                  // Notification Bell Icon
                   IconButton(
-                    icon: const Icon(Icons.notifications, color: Colors.pinkAccent),
+                    icon: Icon(
+                      Icons.add, // Plus icon
+                      color: Colors.green,
+                      size: 20,
+                    ),
                     onPressed: () {
-                      // Add notification functionality here
+                      // Navigate to the AddCreditsScreen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AddCreditsScreen()),
+                      );
                     },
-                  ),
-                  // Logout Icon
-                  IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.black),
-                    onPressed: _logout,
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              // Search Bar and Filter Button
-              Row(
-                children: [
-                  // Search Bar
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey[200],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Filter Button
-                  IconButton(
-                    onPressed: () {
-                      // Show filter screen sliding from the bottom
-                      _showFilterScreen();
-                    },
-                    icon: const Icon(Icons.filter_list, color: Colors.black),
-                    tooltip: 'Filter',
-                  ),
-                ],
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.notifications,
+                    color: Colors.pinkAccent, size: 20),
+                onPressed: () {
+                  // Add notification functionality here
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.menu, color: Colors.black, size: 20),
+                onPressed: () {
+                  _scaffoldKey.currentState?.openDrawer();
+                },
               ),
             ],
           ),
         ),
-        // Suggested Matches Section
-        _buildSuggestedMatches(),
+        // Tabs Section
+        Container(
+          decoration: BoxDecoration(
+              // color: Colors.white, // Background color of the TabBar
+              ),
+          child: TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.pinkAccent,
+            labelColor: Colors.pinkAccent,
+            unselectedLabelColor: Colors.grey,
+            labelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            unselectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            tabs: [
+              Tab(
+                child: Container(
+                  alignment: Alignment.center,
+                  child: const Text('All'),
+                ),
+              ),
+              Tab(
+                child: Container(
+                  alignment: Alignment.center,
+                  child: const Text('VIP'),
+                ),
+              ),
+              Tab(
+                child: Container(
+                  alignment: Alignment.center,
+                  child: const Text('Premium'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Tab Content Section
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildSuggestedMatches(),
+              _buildVIPContent(),
+              // _buildViewsContent(),
+              _buildPremiumContent(),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+// Add the Drawer widget to the Scaffold
+final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+@override
+Widget build(BuildContext context) {
+  return WillPopScope(
+    onWillPop: () async {
+      // Show a confirmation dialog
+      bool? shouldPop = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Exit App'),
+          content: Text('Do you want to exit the app?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text('Yes'),
+            ),
+          ],
+        ),
+      );
+      return shouldPop ?? false;
+    },
+    child: Scaffold(
+      key: _scaffoldKey,
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            UserAccountsDrawerHeader(
+              accountName: Text(_userName ?? 'Loading...'),
+              accountEmail: Text(_userEmail ?? 'Loading...'),
+              currentAccountPicture: CircleAvatar(
+                backgroundImage: _profilePicture != null
+                    ? NetworkImage('$baseurl${_profilePicture}')
+                    : null,
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.home),
+              title: Text('Home'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.person),
+              title: Text('Profile'),
+             
+            ),
+            ListTile(
+              leading: Icon(Icons.settings),
+              title: Text('Settings'),
+              onTap: () {
+                // Navigate to settings screen
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Logout'),
+              onTap: () {
+                _logout();
+              },
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(
+                    child: Text(_error!,
+                        style: const TextStyle(color: Colors.red)))
+                : IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      // Home screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () async {
+                          await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
+                          // You can also add other home-specific refresh logic here if needed
+                          await _fetchUserDetails();
+                          await _fetchMatches();
+                          await _fetchCreditScore();
+                        },
+                        child: _buildHomeScreen(),
+                      ),
+                      // Matches screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+                        child: _buildMatchesScreen(),
+                      ),
+                      // Chat screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onChatRefresh(context),
+                        child: _buildChatScreen(),
+                      ),
+                      // Profile screen with refresh
+                      RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onProfileRefresh(context),
+                        child: ProfileScreen(),
+                      ),
+                    ],
+                  ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: BottomNavigationBar(
+            items: [
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(Icons.favorite, 0),
+                label: 'Discover',
+              ),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    _buildAnimatedIcon(Icons.people, 1),
+                    // Notification badge for new matches
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: const Text(
+                          '2', // Replace with actual count
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                label: 'Matches',
+              ),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    _buildAnimatedIcon(Icons.chat_bubble, 2),
+                    // Notification badge for unread messages
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 12,
+                          minHeight: 12,
+                        ),
+                        child: const Text(
+                          '5', // Replace with actual count
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                label: 'Messages',
+              ),
+              BottomNavigationBarItem(
+                icon: _buildAnimatedIcon(Icons.person, 3),
+                label: 'Profile',
+              ),
+            ],
+            currentIndex: _currentIndex,
+            selectedItemColor: Colors.pinkAccent,
+            unselectedItemColor: Colors.grey,
+            selectedFontSize: 12,
+            unselectedFontSize: 12,
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.white,
+            elevation: 0,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+          ),
+        ),
+      ),
     ),
   );
+}
+
+  Widget _buildVIPContent() {
+  return BoostedProfilesScreen(); // Ensure this method is defined in Boosted_profiles.dart
+}
+Widget _buildPremiumContent() {
+  return ChatListScreen(); // This will render the list of all chats
 }
 
   Future<void> fetchCurrentUserId() async {
@@ -1308,13 +1477,9 @@ Container _buildSuggestedMatches() {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Suggested Matches',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 400,
+          height: 450, // Increase the height of the card
           child: Stack(
             clipBehavior: Clip.none,
             children: List.generate(_matches.length, (index) {
@@ -1389,7 +1554,7 @@ Container _buildSuggestedMatches() {
                   ),
                   child: GestureDetector(
                     child: Container(
-                      height: 400,
+                      height: 450, // Increase the height of the card
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(15),
@@ -1424,6 +1589,15 @@ Container _buildSuggestedMatches() {
                                   Colors.black.withOpacity(0.7),
                                 ],
                               ),
+                            ),
+                          ),
+                          // Profile Icon
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: CircleAvatar(
+                              backgroundColor: Colors.white,
+                              child: Icon(Icons.person, color: Colors.grey[700]),
                             ),
                           ),
                           // User Info
@@ -1511,9 +1685,6 @@ Container _buildSuggestedMatches() {
     ),
   );
 }
-
-
-
 
   // Placeholder for Search tab
   Widget _buildSearchScreen() {

@@ -113,7 +113,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   void _initializeMessageStream() {
     _messageStream = Stream.periodic(Duration(seconds: 5), (_) async {
-      await _checkNewMessages();
+   
       return null;
     }).asyncMap((event) async => await event);
 
@@ -144,72 +144,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
     });
   }
 
-  Future<void> _checkNewMessages() async {
-    String? accessToken = await getAccessToken();
-    if (accessToken == null) {
-      accessToken = await refreshAccessToken();
-      if (accessToken == null) return;
-    }
-
-    // for (var chat in chatSessions) {
-    //   try {
-    //     final response = await http.get(
-    //       Uri.parse('$baseUrl/api/messages/unread/${chat['user1Id']}/${chat['user2Id']}/'),
-    //       headers: {
-    //         'Authorization': 'Bearer $accessToken',
-    //         'Content-Type': 'application/json',
-    //       },
-    //     );
-
-    //     if (response.statusCode == 200) {
-    //       var data = json.decode(response.body);
-    //       int unreadCount = data['unread_count'] ?? 0;
-          
-    //       if (!mounted) return;
-          
-    //       setState(() {
-    //         String chatKey = '${chat['user1Id']}_${chat['user2Id']}';
-    //         if (_currentChatId != chatKey) {
-    //           unreadCounts[chatKey] = unreadCount;
-    //         }
-    //       });
-    //     }
-    //   } catch (e) {
-    //     print('Error checking new messages: $e');
-    //   }
-    // }
-  }
-
-  void _markMessagesAsRead(int user1Id, int user2Id) async {
-    String? accessToken = await getAccessToken();
-    if (accessToken == null) {
-      accessToken = await refreshAccessToken();
-      if (accessToken == null) return;
-    }
-
-    try {
-      await http.post(
-        Uri.parse('$baseUrl/api/messages/mark-read/$user1Id/$user2Id/'),
-        headers: {
-          'Authorization': 'Bearer $accessToken',
-          'Content-Type': 'application/json',
-        },
-      );
-
-      setState(() {
-        unreadCounts['${user1Id}_${user2Id}'] = 0;
-      });
-    } catch (e) {
-      print('Error marking messages as read: $e');
-    }
-  }
-
-  void _setCurrentChat(String chatId) {
-    setState(() {
-      _currentChatId = chatId;
-      unreadCounts[chatId] = 0;
-    });
-  }
 
   Future<void> _loadChatSessions() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -403,8 +337,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         ),
                       ),
                       onTap: () {
-                        _setCurrentChat(chatKey);
-                        _markMessagesAsRead(chat['user1Id'], chat['user2Id']);
+                        // _setCurrentChat(chatKey);
+                  
                         Navigator.push(
                           context,
                           MaterialPageRoute(
