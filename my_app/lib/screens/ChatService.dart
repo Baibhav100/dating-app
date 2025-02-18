@@ -13,7 +13,7 @@ class ChatService {
     final prefs = await SharedPreferences.getInstance();
     final authToken = prefs.getString('access_token');
 
-    final url = Uri.parse('ws://192.168.1.76:8000/ws/chat/$user2Id/?token=$authToken');
+    final url = Uri.parse('ws://192.168.1.241:8000/ws/chat/$user2Id/?token=$authToken');
     _channel = WebSocketChannel.connect(url);
     _channel.stream.listen((data) {
       print('Raw WebSocket Data: $data'); // Debugging

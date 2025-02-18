@@ -72,6 +72,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        print(data['matches']);
         return data['matches'];
       } else if (response.statusCode == 401) {
         // Token expired, try refreshing
