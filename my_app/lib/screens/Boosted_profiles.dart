@@ -8,6 +8,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
 class BoostedProfilesScreen extends StatefulWidget {
+  String? accessToken;
+  String? refreshToken;
+  BoostedProfilesScreen({super.key, this.accessToken, this.refreshToken});
   @override
   _BoostedProfilesScreenState createState() => _BoostedProfilesScreenState();
 }
@@ -130,15 +133,20 @@ class _BoostedProfilesScreenState extends State<BoostedProfilesScreen> {
                             ? Icon(Icons.visibility)
                             : Icon(Icons.visibility_off),
                       ),
-                      if (!hasBoost && profile['blurred'])
-                        Positioned.fill(
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                            child: Container(
-                              color: Colors.black.withOpacity(0),
-                            ),
-                          ),
-                        ),
+              if (!hasBoost && profile['blurred'])
+  Positioned.fill(
+    child: Container(
+      width: double.infinity,
+      height: double.infinity,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+        child: Container(
+          color: Colors.black.withOpacity(0),
+        ),
+      ),
+    ),
+  ),
+
                     ],
                   ),
                 );

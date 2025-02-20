@@ -18,6 +18,7 @@ import 'package:my_app/screens/add_credits_screen.dart';
 import 'ChatListScreen.dart';
 import 'package:flutter/services.dart';  // Add this import at the top
 import 'package:my_app/screens/UserProfileScreen.dart';
+import 'premium.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
@@ -93,6 +94,7 @@ SingleTickerProviderStateMixin {
     try {
       prefs = await SharedPreferences.getInstance();
       accessToken = prefs?.getString('access_token');
+      print('Access Token: $accessToken');
       refreshToken = prefs?.getString('refresh_token');
 
       if (accessToken == null && refreshToken != null) {
@@ -250,10 +252,10 @@ void initState() {
   _tabController = TabController(length: 3, vsync: this); // Initialize with the correct length
 
   // Set the system navigation bar color to red and icon color to white
-  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-    systemNavigationBarColor: Color.fromARGB(255, 250, 16, 106), // Set the background color to red
-    systemNavigationBarIconBrightness: Brightness.light, // Set the icon brightness to light
-  ));
+  // SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+  //   systemNavigationBarColor: Color.fromARGB(255, 250, 16, 106), // Set the background color to red
+  //   systemNavigationBarIconBrightness: Brightness.light, // Set the icon brightness to light
+  // ));
 
   // Initialize with passed tokens if available
   if (widget.accessToken != null && widget.refreshToken != null) {
@@ -285,6 +287,12 @@ void initState() {
     });
   }
 }
+
+  @override
+  void dispose() {
+    _tabController.dispose(); // Properly dispose of the TabController
+    super.dispose();
+  }
 
 
   Future<void> _logout() async {
@@ -576,10 +584,10 @@ child: ClipRRect(
   ),
 ),
       ),
-     drawer: Drawer(
-  child: ListView(
-    padding: EdgeInsets.zero,
-    children: [
+    drawer: Drawer(
+    child: ListView(
+      padding: EdgeInsets.zero,
+      children: [
       DrawerHeader(
         decoration: BoxDecoration(
           color: primaryColor,
@@ -587,67 +595,118 @@ child: ClipRRect(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Settings',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+        Row(
+          children: [
+            CircleAvatar(
+          radius: 30,
+          backgroundImage: _profilePicture != null
+              ? NetworkImage('$baseurl$_profilePicture')
+              : null,
             ),
-            SizedBox(height: 10),
+            const SizedBox(width: 10),
             Text(
-              _userName ?? 'User',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-              ),
+          'Settings',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
             ),
           ],
         ),
+        const SizedBox(height: 10),
+        Text(
+          _userName ?? 'User',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          _userEmail ?? 'user@example.com',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+          ),
+        ),
+          ],
+        ),
       ),
-      ListTile(
-        leading: Icon(Icons.person, color: textColor),
-        title: Text('Edit Profile', style: TextStyle(color: textColor)),
-        onTap: () {
-          // Navigate to Edit Profile Screen
-        },
+    ListTile(
+  leading: Icon(Icons.person, color: primaryColor),
+  title: Text('Edit Profile', style: TextStyle(color: textColor)),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(),
       ),
+    );
+  },
+),
       ListTile(
-        leading: Icon(Icons.credit_card, color: textColor),
+        leading: Icon(Icons.credit_card, color: primaryColor),
         title: Text('Add Credits', style: TextStyle(color: textColor)),
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddCreditsScreen()),
-          );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => AddCreditsScreen()),
+        );
         },
       ),
       ListTile(
-        leading: Icon(Icons.privacy_tip, color: textColor),
+        leading: Icon(Icons.privacy_tip, color: primaryColor),
         title: Text('Privacy Settings', style: TextStyle(color: textColor)),
         onTap: () {
-          // Navigate to Privacy Settings Screen
+        // Navigate to Privacy Settings Screen
         },
       ),
       ListTile(
-        leading: Icon(Icons.notifications, color: textColor),
+        leading: Icon(Icons.notifications, color: primaryColor),
         title: Text('Notification Settings', style: TextStyle(color: textColor)),
         onTap: () {
-          // Navigate to Notification Settings Screen
+        // Navigate to Notification Settings Screen
         },
       ),
       Divider(),
       ListTile(
-        leading: Icon(Icons.logout, color: Colors.black),
+        leading: Icon(Icons.logout, color: Colors.redAccent),
         title: Text('Logout', style: TextStyle(color: textColor)),
         onTap: () {
-          _logout();
+        _logout();
         },
       ),
-    ],
-  ),
-),
+      const SizedBox(height: 20),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        icon: Icon(Icons.star, color: Colors.white),
+        label: Text(
+          'Upgrade to Premium',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        onPressed: () {
+          Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => PremiumScreen()),
+          );
+        },
+        ),
+      ),
+      const SizedBox(height: 20),
+      Image.asset('assets/sidebar_pic.jpg', height: 200, fit: BoxFit.cover),
+      ],
+    ),
+    ),
     ),
   );
 }
@@ -664,7 +723,7 @@ Widget _buildAnimatedIcon(IconData icon, int index) {
     child: Icon(
       icon,
       size: _currentIndex == index ? 28 : 24,
-      color: const Color.fromARGB(255, 255, 255, 255),
+      color: _currentIndex == index ? Color.fromARGB(255, 250, 16, 106) : Colors.white,
     ),
   );
 }
@@ -1260,7 +1319,7 @@ Future<Map<String, dynamic>> _fetchUserById(int userId) async {
 
     if (response.statusCode == 200) {
       final userData = json.decode(response.body);
-      print('Successfully fetched user data: $userData');
+      // print('Successfully fetched user data: $userData');
       return userData;
     } else {
       print('Failed to fetch user data. Status: ${response.statusCode}, Body: ${response.body}');
@@ -1458,120 +1517,161 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
   }
 }
 // Home tab with header
-  Widget _buildHomeScreen() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundImage: _profilePicture != null
-            ? NetworkImage('$baseurl${_profilePicture}')
-            : null,
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          Text(
-            _creditScore != null
-            ? 'Credits: $_creditScore'
-            : 'Loading...', // Display the credit score
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
+Widget _buildHomeScreen() {
+  return Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 25,
+              backgroundImage: _profilePicture != null
+                  ? NetworkImage('$baseurl$_profilePicture')
+                  : null,
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.add, // Plus icon
-              color: Colors.green,
-              size: 20,
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TweenAnimationBuilder<int>(
+                tween: IntTween(begin: 0, end: _creditScore ?? 0),
+                duration: const Duration(seconds: 2),
+                builder: (context, value, child) {
+                  return Row(
+                  children: [
+                    Text(
+                    'Credits: $value',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                    Icons.monetization_on,
+                    color: Color.fromARGB(255, 175, 152, 76),
+                    size: 20,
+                    ),
+                  ],
+                  );
+                },
+                ),
+              
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AddCreditsScreen()),
+                );
+                },
+                child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                  const Text(
+                    'Add Credits',
+                    style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromARGB(255, 255, 255, 255),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.add, color: Colors.green, size: 20),
+                  ],
+                ),
+                ),
+              ),
+              ],
             ),
-            onPressed: () {
-              // Navigate to the AddCreditsScreen
-              Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => AddCreditsScreen()),
-              );
-            },
-          ),
-            ],
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.notifications,
-            color: Colors.pinkAccent, size: 20),
-            onPressed: () {
-          // Add notification functionality here
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.black, size: 20),
-            onPressed: () {
-          _scaffoldKey.currentState?.openDrawer();
-            },
-          ),
-        ],
-          ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.notifications, color: Colors.pinkAccent, size: 20),
+              onPressed: () {
+                // Add notification functionality here
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.menu, color: Colors.black, size: 20),
+              onPressed: () {
+                _scaffoldKey.currentState?.openDrawer();
+              },
+            ),
+          ],
         ),
-        // Tabs Section
-        Container(
-          decoration: BoxDecoration(
-          // color: Colors.white, // Background color of the TabBar
-          ),
-          child: TabBar(
-        controller: _tabController,
-        indicatorColor: Colors.pinkAccent,
-        labelColor: Colors.pinkAccent,
-        unselectedLabelColor: Colors.grey,
-        labelStyle:
-            const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        unselectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        tabs: [
-          Tab(
-            child: Container(
-          alignment: Alignment.center,
-          child: const Text('All'),
-            ),
-          ),
-          Tab(
-            child: Container(
-          alignment: Alignment.center,
-          child: const Text('VIP'),
-            ),
-          ),
-          Tab(
-            child: Container(
-          alignment: Alignment.center,
-          child: const Text('Premium'),
-            ),
-          ),
-        ],
-          ),
+      ),
+      Container(
+        child: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.pinkAccent,
+          labelColor: Colors.pinkAccent,
+          unselectedLabelColor: Colors.grey,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          tabs: const [
+        Tab(child: Text('All')),
+        Tab(child: Text('Boosted')),
+        Tab(child: Text('Premium')),
+          ],
         ),
-        // Tab Content Section
-        Expanded(
-          child: TabBarView(
-        controller: _tabController,
-        children: [
-          SingleChildScrollView(child: _buildSuggestedMatches()),
-          SingleChildScrollView(child: _buildVIPContent()),
-          SingleChildScrollView(child: _buildPremiumContent()),
-        ],
-          ),
+      ),
+      Expanded(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 0,
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+                ),
+                child: _buildSuggestedMatches(),
+              ),
+            ),
+            SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 0,
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+                ),
+                child: _buildVIPContent(),
+              ),
+            ),
+            SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: 0,
+                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+                ),
+                child: _buildPremiumContent(),
+              ),
+            ),
+          ],
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
 
   Widget _buildVIPContent() {
-    return BoostedProfileScreen();
+    return BoostedProfilesScreen();
+ 
   }
 
   Widget _buildViewsContent() {
@@ -1581,9 +1681,7 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
   }
 
   Widget _buildPremiumContent() {
-    return Center(
-      child: Text('Premium Content'),
-    );
+    return PremiumScreen();
   }
 
   Future<void> fetchCurrentUserId() async {
