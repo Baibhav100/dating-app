@@ -59,6 +59,7 @@ class SubscriptionPlan {
   }
 }
 
+
 class AddCreditsScreen extends StatefulWidget {
   @override
   _AddCreditsScreenState createState() => _AddCreditsScreenState();
@@ -110,6 +111,11 @@ Future<void> _initializeBilling() async {
       if (response.error != null) {
         return;
       }
+
+      // Print available products
+      response.productDetails.forEach((product) {
+        print("Product available: ${product.id}, ${product.title}, ${product.price}");
+      });
 
       setState(() {
         _creditPackages = response.productDetails.map((product) {
@@ -289,6 +295,7 @@ Future<void> _initializeBilling() async {
 
   Future<void> _sendInAppPurchaseDataToBackend(PurchaseDetails purchase) async {
     try {
+      print("sending to the backend for purchase: ${purchase.productID}");
       final prefs = await SharedPreferences.getInstance();
       final authToken = prefs.getString('access_token');
 
@@ -374,11 +381,11 @@ Future<void> _initializeBilling() async {
 
   Future<void> _purchaseCreditPackage(CreditPackage package) async {
   print("Purchase function triggered for package: ${package.id}");
-  
+
   try {
-    final ProductDetailsResponse response = 
+    final ProductDetailsResponse response =
         await InAppPurchase.instance.queryProductDetails({package.id});
-    
+
     // Print the full response
     print("ProductDetailsResponse: $response");
     print("Not Found IDs: ${response.notFoundIDs}");
@@ -387,7 +394,7 @@ Future<void> _initializeBilling() async {
     if (response.notFoundIDs.isNotEmpty) {
       print("Product ID not found: ${response.notFoundIDs}");
       return;
-    }  
+    }
 
     if (response.productDetails.isEmpty) {
       print("Product details list is empty.");
@@ -404,22 +411,21 @@ Future<void> _initializeBilling() async {
   }
 }
 
-
   Future<void> _purchaseSubscriptionPlan(SubscriptionPlan plan) async {
     try {
       final ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails({plan.id});
-
+  
       if (response.notFoundIDs.isNotEmpty) {
         return;
       }
-
+  
       if (response.productDetails.isEmpty) {
         return;
       }
-
-      final productDetails = response.productDetails.first; 
+  
+      final productDetails = response.productDetails.first;
       final PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
-
+  
       InAppPurchase.instance.buyNonConsumable(purchaseParam: purchaseParam);
     } catch (e) {
       print('An error occurred during subscription purchase: $e');
