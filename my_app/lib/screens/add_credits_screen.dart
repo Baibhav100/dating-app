@@ -94,40 +94,43 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
 
   bool _isPurchaseProcessed = false;
 
-  Future<void> _initializeBilling() async {
-    try {
-      final bool available = await InAppPurchase.instance.isAvailable();
-      setState(() {
-        _isAvailable = available;
-      });
+Future<void> _initializeBilling() async {
+  try {
+    final bool available = await InAppPurchase.instance.isAvailable();
+    print("In-app purchases available: $available"); // Print purchase availability
 
-      if (_isAvailable) {
-        final Set<String> ids = {'sp50', 'ep200', 'vipp500'};
-        ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails(ids);
+    setState(() {
+      _isAvailable = available;
+    });
 
-        if (response.error != null) {
-          return;
-        }
+    if (_isAvailable) {
+      final Set<String> ids = {'sp50', 'ep200', 'vipp500'};
+      ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails(ids);
 
-        setState(() {
-          _creditPackages = response.productDetails.map((product) {
-            String cleanTitle = product.title.replaceAll(RegExp(r'\(.*\)'), '').trim();
-            return CreditPackage(
-              id: product.id,
-              name: cleanTitle,
-              price: product.price,
-              credits: int.tryParse(product.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
-              details: product.description,
-            );
-          }).toList();
-          _isLoadingPackages = false;
-        });
+      if (response.error != null) {
+        return;
       }
-    } catch (e, stacktrace) {
-      print("Error occurred while initializing billing: $e");
-      print("Stacktrace: $stacktrace");
+
+      setState(() {
+        _creditPackages = response.productDetails.map((product) {
+          String cleanTitle = product.title.replaceAll(RegExp(r'\(.*\)'), '').trim();
+          return CreditPackage(
+            id: product.id,
+            name: cleanTitle,
+            price: product.price,
+            credits: int.tryParse(product.id.replaceAll(RegExp(r'\D'), '')) ?? 0,
+            details: product.description,
+          );
+        }).toList();
+        _isLoadingPackages = false;
+      });
     }
+  } catch (e, stacktrace) {
+    print("Error occurred while initializing billing: $e");
+    print("Stacktrace: $stacktrace");
   }
+}
+
 
   Future<void> _fetchUserId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -370,25 +373,37 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
   }
 
   Future<void> _purchaseCreditPackage(CreditPackage package) async {
-    try {
-      final ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails({package.id});
+  print("Purchase function triggered for package: ${package.id}");
+  
+  try {
+    final ProductDetailsResponse response = 
+        await InAppPurchase.instance.queryProductDetails({package.id});
+    
+    // Print the full response
+    print("ProductDetailsResponse: $response");
+    print("Not Found IDs: ${response.notFoundIDs}");
+    print("Product Details List: ${response.productDetails}");
 
-      if (response.notFoundIDs.isNotEmpty) {
-        return;
-      }
+    if (response.notFoundIDs.isNotEmpty) {
+      print("Product ID not found: ${response.notFoundIDs}");
+      return;
+    }  
 
-      if (response.productDetails.isEmpty) {
-        return;
-      }
-
-      final productDetails = response.productDetails.first;
-      final PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
-
-      InAppPurchase.instance.buyConsumable(purchaseParam: purchaseParam);
-    } catch (e) {
-      print('An error occurred during purchase: $e');
+    if (response.productDetails.isEmpty) {
+      print("Product details list is empty.");
+      return;
     }
+
+    final productDetails = response.productDetails.first;
+    final PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
+
+    print("Initiating purchase for: ${productDetails.id}");
+    InAppPurchase.instance.buyConsumable(purchaseParam: purchaseParam);
+  } catch (e) {
+    print('An error occurred during purchase: $e');
   }
+}
+
 
   Future<void> _purchaseSubscriptionPlan(SubscriptionPlan plan) async {
     try {
@@ -402,7 +417,7 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
         return;
       }
 
-      final productDetails = response.productDetails.first;
+      final productDetails = response.productDetails.first; 
       final PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
 
       InAppPurchase.instance.buyNonConsumable(purchaseParam: purchaseParam);
@@ -566,12 +581,14 @@ class _AddCreditsScreenState extends State<AddCreditsScreen> with SingleTickerPr
             ),
             ],
           ),
-          onTap: () {
-            setState(() {
-            _selectedCreditPlan = index;
-            });
-            _purchaseCreditPackage(package);
+        onTap: () {
+        print("onTap triggered for package: ${package.id}");
+        setState(() {
+          _selectedCreditPlan = index;
+        });
+        _purchaseCreditPackage(package);
           },
+
           ),
         ),
         );
