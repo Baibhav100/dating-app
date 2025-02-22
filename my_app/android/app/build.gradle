@@ -45,8 +45,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         // versionCode = flutter.versionCode
         // versionName = flutter.versionName
-        versionCode 4 // Update this to a new, unique version code
-        versionName "1.1.1" // Increment version name if needed
+        versionCode 5 // Update this to a new, unique version code
+        versionName "5.0.1" // Increment version name if needed
         minSdkVersion 23
     }   
 
