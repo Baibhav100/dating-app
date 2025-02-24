@@ -19,6 +19,8 @@ import 'ChatListScreen.dart';
 import 'package:flutter/services.dart';  // Add this import at the top
 import 'package:my_app/screens/UserProfileScreen.dart';
 import 'premium.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
@@ -306,7 +308,20 @@ void initState() {
   }
 
   // Function to show the filter bottom sheet
-  void _showFilterScreen() {
+void _showFilterScreen() async {
+  // Check current permission status first
+  PermissionStatus currentStatus = await Permission.location.status;
+  print('Current location permission status: $currentStatus');
+
+  // Request location permission
+  PermissionStatus status = await Permission.location.request();
+  print('After request, location permission status: $status');
+  
+  if (status.isGranted) {
+    print('Location permission is granted, updating location...');
+    await updateUserLocation(); // Update location when permission is granted
+    
+    // Show filter screen after location is updated
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -409,7 +424,31 @@ void initState() {
         );
       },
     );
+  } else {
+    print('Location permission denied, showing permission dialog');
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Location Permission Required'),
+          content: const Text(
+            'We need location permission to show you matches in your area. Please grant location permission to use filters.'
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => openAppSettings(),
+              child: const Text('Open Settings'),
+            ),
+          ],
+        );
+      },
+    );
   }
+}
 
 // Inside your build method
 final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -1601,6 +1640,10 @@ Widget _buildHomeScreen() {
             ),
             const Spacer(),
             IconButton(
+              icon: const Icon(Icons.filter_alt, color: Colors.pinkAccent, size: 20), // Add filter button
+              onPressed: _showFilterScreen,
+            ),
+            IconButton(
               icon: const Icon(Icons.notifications, color: Colors.pinkAccent, size: 20),
               onPressed: () {
                 // Add notification functionality here
@@ -2315,4 +2358,34 @@ Widget _buildChatScreen() {
 
   // Add the missing profile screen method
  
+Future<void> updateUserLocation() async {
+  try {
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high
+    );
+
+    print('Retrieved Location: ${position.latitude}, ${position.longitude}');
+
+    final response = await http.post(
+      Uri.parse('$baseurl/auth/store_location/'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        "lat": position.latitude,
+        "long": position.longitude,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      print('Location updated successfully');
+    } else {
+      print('Failed to update location: ${response.statusCode}');
+      print('Response body: ${response.body}');
+    }
+  } catch (e) {
+    print('Error updating location: $e');
+  }
+}
 }

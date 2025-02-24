@@ -32,7 +32,8 @@ dependencies:
   web_socket_channel: ^2.4.0
   in_app_purchase: ^3.0.9
   base64: 1.0.0
-  intl: ^0.18.0 
+  intl: ^0.18.0
+  geolocator: ^10.1.0
 
 dev_dependencies:
   flutter_test:
