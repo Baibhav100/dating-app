@@ -481,6 +481,7 @@ Widget build(BuildContext context) {
       return shouldPop ?? false;
     },
     child: Scaffold(
+      backgroundColor: Colors.white,
       key: _scaffoldKey, // Add the scaffold key
       body: SafeArea(
         child: _isLoading
@@ -492,13 +493,13 @@ Widget build(BuildContext context) {
                     children: [
                       // Home screen with refresh
                       RefreshIndicator(
-                          onRefresh: () async {
-                            await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
-                            // You can also add other home-specific refresh logic here if needed
-                            await _fetchUserDetails();
-                            await _fetchMatches();
-                            await _fetchCreditScore();
-                          },
+                        onRefresh: () async {
+                          await RefreshHelper.onHomeRefresh(context); // Call refresh logic for home
+                          // You can also add other home-specific refresh logic here if needed
+                          await _fetchUserDetails();
+                          await _fetchMatches();
+                          await _fetchCreditScore();
+                        },
                         child: _buildHomeScreen(),
                       ),
                       // Matches screen with refresh
@@ -520,241 +521,328 @@ Widget build(BuildContext context) {
                   ),
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+        height: 56, // Set the desired height for the BottomNavigationBar
+        child: BottomNavigationBar(
+          items: [
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(Icons.favorite, 0),
+              label: '', // Remove the label
             ),
-          ],
-        ),
-child: ClipRRect(
-  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-  child: BottomNavigationBar(
-    items: [
-      BottomNavigationBarItem(
-        icon: _buildAnimatedIcon(Icons.favorite, 0),
-        label: 'Discover',
-      ),
-      BottomNavigationBarItem(
-        icon: Stack(
-          children: [
-            _buildAnimatedIcon(Icons.people, 1),
-            // Notification badge for new matches
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 12,
-                  minHeight: 12,
-                ),
-                child: const Text(
-                  '2', // Replace with actual count
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  _buildAnimatedIcon(Icons.people, 1),
+                  // Notification badge for new matches
+                ],
               ),
+              label: '', // Remove the label
             ),
-          ],
-        ),
-        label: 'Matches',
-      ),
-      BottomNavigationBarItem(
-        icon: Stack(
-          children: [
-            _buildAnimatedIcon(Icons.chat_bubble, 2),
-            // Notification badge for unread messages
-            Positioned(
-              right: 0,
-              top: 0,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 12,
-                  minHeight: 12,
-                ),
-                child: const Text(
-                  '5', // Replace with actual count
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                  _buildAnimatedIcon(Icons.chat_bubble, 2),
+                  // Notification badge for unread messages
+                ],
               ),
+              label: '', // Remove the label
+            ),
+            BottomNavigationBarItem(
+              icon: _buildAnimatedIcon(Icons.person, 3),
+              label: '', // Remove the label
             ),
           ],
-        ),
-        label: 'Messages',
-      ),
-      BottomNavigationBarItem(
-        icon: _buildAnimatedIcon(Icons.person, 3),
-        label: 'Profile',
-      ),
-    ],
-    currentIndex: _currentIndex,
-    selectedItemColor: Colors.red,
-    unselectedItemColor: Colors.white,
-    selectedFontSize: 12,
-    unselectedFontSize: 12,
-    type: BottomNavigationBarType.fixed,
-    backgroundColor: const Color.fromARGB(255, 250, 16, 106),
-    elevation: 0,
-    onTap: (index) {
-      setState(() {
-        _currentIndex = index;
-      });
-    },
-  ),
-),
-      ),
-    drawer: Drawer(
-    child: ListView(
-      padding: EdgeInsets.zero,
-      children: [
-      DrawerHeader(
-        decoration: BoxDecoration(
-          color: primaryColor,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-        Row(
-          children: [
-            CircleAvatar(
-          radius: 30,
-          backgroundImage: _profilePicture != null
-              ? NetworkImage('$baseurl$_profilePicture')
-              : null,
-            ),
-            const SizedBox(width: 10),
-            Text(
-          'Settings',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Text(
-          _userName ?? 'User',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-          ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          _userEmail ?? 'user@example.com',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-          ),
-        ),
-          ],
+          currentIndex: _currentIndex,
+          selectedItemColor: Colors.red,
+          unselectedItemColor: const Color.fromARGB(255, 52, 49, 49),
+          selectedFontSize: 0,
+          unselectedFontSize: 0,
+          type: BottomNavigationBarType.fixed,
+          elevation: 0,
+          iconSize: 23, // Ensure all icons are the same size
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
         ),
       ),
-    ListTile(
-  leading: Icon(Icons.person, color: primaryColor),
-  title: Text('Edit Profile', style: TextStyle(color: textColor)),
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EditProfileScreen(),
-      ),
-    );
-  },
-),
-      ListTile(
-        leading: Icon(Icons.credit_card, color: primaryColor),
-        title: Text('Add Credits', style: TextStyle(color: textColor)),
-        onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => AddCreditsScreen()),
-        );
-        },
-      ),
-      ListTile(
-        leading: Icon(Icons.privacy_tip, color: primaryColor),
-        title: Text('Privacy Settings', style: TextStyle(color: textColor)),
-        onTap: () {
-        // Navigate to Privacy Settings Screen
-        },
-      ),
-      ListTile(
-        leading: Icon(Icons.notifications, color: primaryColor),
-        title: Text('Notification Settings', style: TextStyle(color: textColor)),
-        onTap: () {
-        // Navigate to Notification Settings Screen
-        },
-      ),
-      Divider(),
-      ListTile(
-        leading: Icon(Icons.logout, color: Colors.redAccent),
-        title: Text('Logout', style: TextStyle(color: textColor)),
-        onTap: () {
-        _logout();
-        },
-      ),
-      const SizedBox(height: 20),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        icon: Icon(Icons.star, color: Colors.white),
-        label: Text(
-          'Upgrade to Premium',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        onPressed: () {
-          Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => PremiumScreen()),
-          );
-        },
-        ),
-      ),
-      const SizedBox(height: 20),
-      Image.asset('assets/sidebar_pic.jpg', height: 200, fit: BoxFit.cover),
-      ],
-    ),
-    ),
+
     ),
   );
 }
 
+void _showSettingsBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.9 - MediaQuery.of(context).padding.bottom,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(
+              'Discover Settings',
+              style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold), // Set the text color to primaryColor
+            ),
+            backgroundColor: const Color.fromARGB(255, 255, 255, 255), // White background
+          ),
+          body: ListView(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            children: [
+              ListTile(
+                leading: Icon(Icons.person, color: primaryColor),
+                title: Text('Edit Profile', style: TextStyle(color: textColor)),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditProfileScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.credit_card, color: primaryColor),
+                title: Text('Add Credits', style: TextStyle(color: textColor)),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AddCreditsScreen()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.favorite, color: primaryColor),
+                title: Text('Likes & Matches', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to Likes & Matches Screen
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.people, color: primaryColor),
+                title: Text('Preferences', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to Preferences Screen
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.notifications, color: primaryColor),
+                title: Text('Notifications', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to Notifications Screen
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.privacy_tip, color: primaryColor),
+                title: Text('Privacy', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to Privacy Screen
+                },
+              ),
+              Divider(),
+                 ListTile(
+                leading: Icon(Icons.person_search, color: primaryColor),
+                title: Text('Looking For', style: TextStyle(color: textColor)),
+                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                onTap: () {
+                  _showOptionBottomSheet(context, 'lookingFor');
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.open_with, color: primaryColor),
+                title: Text('Open To', style: TextStyle(color: textColor)),
+                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                onTap: () {
+                  _showOptionBottomSheet(context, 'openTo');
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.language, color: primaryColor),
+                title: Text('Add Languages', style: TextStyle(color: textColor)),
+                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                onTap: () {
+                  _showOptionBottomSheet(context, 'addLanguages');
+                },
+              ),
+              Divider(),
+              ListTile(
+                leading: Icon(Icons.help_outline, color: primaryColor),
+                title: Text('Help & Support', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to Help & Support Screen
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.info_outline, color: primaryColor),
+                title: Text('About', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to About Screen
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.logout, color: Colors.redAccent),
+                title: Text('Logout', style: TextStyle(color: textColor)),
+                onTap: () {
+                  _logout();
+                },
+              ),
+              // New ListTiles for Looking For, Open To, and Add Languages
+           
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+void _showOptionBottomSheet(BuildContext context, String option) {
+  switch (option) {
+    case 'lookingFor':
+      _showLookingForBottomSheet(context);
+      break;
+    case 'openTo':
+      _showOpenToBottomSheet(context);
+      break;
+    case 'addLanguages':
+      _showAddLanguagesBottomSheet(context);
+      break;
+    default:
+      // Handle unknown option
+      break;
+  }
+}
+
+void _showLookingForBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text('Casual'),
+              onTap: () {
+                // Handle selection of Option 1
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text('Serious'),
+              onTap: () {
+                // Handle selection of Option 2
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text('Friendship'),
+              onTap: () {
+                // Handle selection of Option 3
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+void _showOpenToBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text('Option A'),
+              onTap: () {
+                // Handle selection of Option A
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text('Option B'),
+              onTap: () {
+                // Handle selection of Option B
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text('Option C'),
+              onTap: () {
+                // Handle selection of Option C
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+void _showAddLanguagesBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: Text('English'),
+              onTap: () {
+                // Handle selection of English
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text('Spanish'),
+              onTap: () {
+                // Handle selection of Spanish
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: Text('French'),
+              onTap: () {
+                // Handle selection of French
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
 Widget _buildAnimatedIcon(IconData icon, int index) {
   return AnimatedContainer(
     duration: const Duration(milliseconds: 200),
-    padding: const EdgeInsets.all(8.0),
     decoration: BoxDecoration(
       color: _currentIndex == index ? Colors.white : Colors.transparent,
       borderRadius: BorderRadius.circular(20.0),
@@ -762,7 +850,7 @@ Widget _buildAnimatedIcon(IconData icon, int index) {
     child: Icon(
       icon,
       size: _currentIndex == index ? 28 : 24,
-      color: _currentIndex == index ? Color.fromARGB(255, 250, 16, 106) : Colors.white,
+      color: _currentIndex == index ? Color.fromARGB(255, 250, 16, 106) : const Color.fromARGB(255, 171, 171, 171),
     ),
   );
 }
@@ -1557,160 +1645,122 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
 }
 // Home tab with header
 Widget _buildHomeScreen() {
-  return Column(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 25,
+  return Scaffold(
+    appBar: AppBar(
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.white,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      backgroundColor: Colors.white, // Customize the background color
+      leading: Row(
+        mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
+        children: [
+          Container(
+            width: 45, // Set the desired width
+            height: 45, // Set the desired height
+            margin: EdgeInsets.all(6), // Optional: Add some margin if needed
+            child: CircleAvatar(
+              radius: 24, // Adjust the radius as needed
               backgroundImage: _profilePicture != null
                   ? NetworkImage('$baseurl$_profilePicture')
                   : null,
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TweenAnimationBuilder<int>(
-                tween: IntTween(begin: 0, end: _creditScore ?? 0),
-                duration: const Duration(seconds: 2),
-                builder: (context, value, child) {
-                  return Row(
-                  children: [
-                    Text(
-                    'Credits: $value',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                    Icons.monetization_on,
-                    color: Color.fromARGB(255, 175, 152, 76),
-                    size: 20,
-                    ),
-                  ],
-                  );
-                },
+          ),
+          SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: _creditScore ?? 0),
+            duration: const Duration(seconds: 2),
+            builder: (context, value, child) {
+              return Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 112, 117, 120),
                 ),
-              
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => AddCreditsScreen()),
-                );
-                },
-                child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                  const Text(
-                    'Add Credits',
-                    style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 255, 255, 255),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.add, color: Colors.green, size: 20),
-                  ],
-                ),
-                ),
-              ),
-              ],
-            ),
-            const Spacer(),
+              );
+            },
+          ),
+        ],
+      ),
+      actions: [
+
             IconButton(
               icon: const Icon(Icons.filter_alt, color: Colors.pinkAccent, size: 20), // Add filter button
               onPressed: _showFilterScreen,
             ),
-            IconButton(
-              icon: const Icon(Icons.notifications, color: Colors.pinkAccent, size: 20),
-              onPressed: () {
-                // Add notification functionality here
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.menu, color: Colors.black, size: 20),
-              onPressed: () {
-                _scaffoldKey.currentState?.openDrawer();
-              },
-            ),
-          ],
+        IconButton(
+          icon: Icon(Icons.notifications),
+          onPressed: () {
+            // Handle notification icon tap
+          },
         ),
-      ),
-      Container(
-        child: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.pinkAccent,
-          labelColor: Colors.pinkAccent,
-          unselectedLabelColor: Colors.grey,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          tabs: const [
-        Tab(child: Text('All')),
-        Tab(child: Text('Boosted')),
-        Tab(child: Text('Premium')),
-          ],
+        IconButton(
+          icon: Icon(Icons.settings),
+         onPressed: () {
+          _showSettingsBottomSheet(context);
+        },
         ),
-      ),
-      Expanded(
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: 0,
-                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+      ],
+    ),
+    body: Column(
+      children: [
+        // Uncomment the TabBar if you want to use it
+        // Container(
+        //   child: TabBar(
+        //     controller: _tabController,
+        //     indicatorColor: Colors.pinkAccent,
+        //     labelColor: Colors.pinkAccent,
+        //     unselectedLabelColor: Colors.grey,
+        //     labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        //     unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        //     tabs: const [
+        //       Tab(child: Text('All')),
+        //       Tab(child: Text('Boosted')),
+        //       Tab(child: Text('Premium')),
+        //     ],
+        //   ),
+        // ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: 0,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  child: _buildSuggestedMatches(),
                 ),
-                child: _buildSuggestedMatches(),
               ),
-            ),
-            SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: 0,
-                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: 0,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  child: _buildVIPContent(),
                 ),
-                child: _buildVIPContent(),
               ),
-            ),
-            SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: 0,
-                  maxHeight: MediaQuery.of(context).size.height * 0.8,
+              SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: 0,
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                  ),
+                  child: _buildPremiumContent(),
                 ),
-                child: _buildPremiumContent(),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
-
 
   Widget _buildVIPContent() {
     return BoostedProfilesScreen();
@@ -1933,7 +1983,7 @@ Future<void> handleSwipe({
 
 
 // Helper function for building action buttons
-Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed) {
+Widget _buildActionButtons(IconData icon, Color color, VoidCallback onPressed) {
   return Container(
     decoration: BoxDecoration(
       color: Colors.white,
@@ -1960,49 +2010,43 @@ Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed) {
 Container _buildSuggestedMatches() {
   return Container(
     padding: const EdgeInsets.all(16.0),
+    height: double.infinity, // Make the parent container take the available space
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
- 
         const SizedBox(height: 10),
-        SizedBox(
-          height: 500, // Increased height from 400 to 500
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: List.generate(_matches.length, (index) {
-              final match = _matches[index]; // Access the top-level match object
-              final profile = match['profile']; // Access the profile details
-              final userId = match['user_id']; // Extract user_id directly
+        Expanded( // Use Expanded to make the SizedBox take the remaining space
+          child: SizedBox(
+            // height: MediaQuery.of(context).size.height * 0.7, // No longer needed
+            child: Stack(
+              clipBehavior: Clip.none, // Allow children to render outside the bounds
+              children: List.generate(_matches.length, (index) {
+                final match = _matches[index];
+                final profile = match['profile'];
+                final distance = match['distance_km'];
+                final distanceString = distance.toString();
+                final userId = match['user_id'];
 
-              return Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Dismissible(
-                  key: Key(userId.toString()), // Use user_id as the key
+                return Dismissible(
+                  key: Key(userId.toString()),
                   onDismissed: (direction) async {
                     if (_currentUserId != 0) {
-                      // Determine swipe direction
                       final isLiked = direction == DismissDirection.startToEnd;
                       final swipeType = isLiked ? 'like' : 'dislike';
 
                       try {
-                        // Pass the correct user_id to handleSwipe
                         await handleSwipe(
                           swipeType: swipeType,
                           swipedUserId: _currentUserId,
-                          swipedOnId: userId, // Use the extracted user_id
+                          swipedOnId: userId,
                         );
 
-                        // Remove the swiped profile from UI
                         setState(() {
                           _matches.removeAt(index);
                         });
 
-                        // Display feedback
                         print('$swipeType: ${profile['name']}');
                       } catch (error) {
-                        // Handle errors
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('Error: ${error.toString()}')),
                         );
@@ -2012,10 +2056,9 @@ Container _buildSuggestedMatches() {
                     }
                   },
                   background: Container(
-                    // Right swipe (like)
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(0.2),
-                       borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Align(
                       alignment: Alignment.centerLeft,
@@ -2026,7 +2069,6 @@ Container _buildSuggestedMatches() {
                     ),
                   ),
                   secondaryBackground: Container(
-                    // Left swipe (dislike)
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(10),
@@ -2039,304 +2081,250 @@ Container _buildSuggestedMatches() {
                       ),
                     ),
                   ),
-                  child: GestureDetector(
-                    child: Container(
-                      height: 500, // Increased height from 400 to 500
-                      alignment: Alignment.topCenter, // Add alignment to top
-                      decoration: BoxDecoration(
-                        color: Colors.white,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    alignment: Alignment.topCenter,
+                    children: [
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(15),
-                        // boxShadow: [
-                        //   BoxShadow(
-                        //     color: Colors.grey.withOpacity(0.3),
-                        //     blurRadius: 8,
-                        //     offset: const Offset(0, 4),
-                        //   ),
-                        // ],
+                        child: Image.network(
+                          '$baseurl${profile['profile_picture']}',
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        alignment: Alignment.topCenter, // Ensure stack content is at top
-                        children: [
-                          // Profile Image
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Image.network(
-                              '$baseurl${profile['profile_picture']}',
-                              fit: BoxFit.cover,
-                            ),
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.7),
+                            ],
                           ),
-                          // Gradient overlay
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(15),
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withOpacity(0.7),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Profile Icon
-                          Positioned(
-                            top: 16,
-                            left: 16,
-                            child: GestureDetector(
-                              onTap: () async {
-                                try {
-                                  final accessToken = await _getAccessToken();
-                                  if (accessToken == null) {
-                                    _showErrorSnackBar('Access token is missing');
-                                    return;
-                                  }
+                        ),
+                      ),
+                      Positioned(
+                        top: 16,
+                        left: 16,
+                        child: GestureDetector(
+                          onTap: () async {
+                            try {
+                              final accessToken = await _getAccessToken();
+                              if (accessToken == null) {
+                                _showErrorSnackBar('Access token is missing');
+                                return;
+                              }
 
-                                  final response = await http.get(
-                                    Uri.parse('$baseurl/auth/unlocked-profiles/'),
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      'Authorization': 'Bearer $accessToken',
-                                    },
-                                  );
+                              final response = await http.get(
+                                Uri.parse('$baseurl/auth/unlocked-profiles/'),
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': 'Bearer $accessToken',
+                                },
+                              );
 
-                                  if (response.statusCode == 200) {
-                                    // Profile is unlocked, navigate to user profile
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => UserProfileScreen(
-                                          user: profile,
-                                          user1Id: _currentUserId,
-                                          user2Id: userId,
+                              if (response.statusCode == 200) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => UserProfileScreen(
+                                      user: profile,
+                                      user1Id: _currentUserId,
+                                      user2Id: userId,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                final responseBody = json.decode(response.body);
+                                if (responseBody['detail'] == 'Subscription plan not found.') {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: const Text(
+                                          'Unlock Profiles',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.pinkAccent
+                                          ),
+                                          textAlign: TextAlign.center,
                                         ),
-                                      ),
-                                    );
-                                  } else {
-                                    // Check the response body
-                                    final responseBody = json.decode(response.body);
-                                    if (responseBody['detail'] == 'Subscription plan not found.') {
-                                      // Show subscription plans popup
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: const Text(
-                                              'Unlock Profiles', 
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Text(
+                                              'To view full profiles, you need an active subscription.',
                                               style: TextStyle(
-                                                fontWeight: FontWeight.bold, 
-                                                color: Colors.pinkAccent
+                                                fontSize: 16,
+                                                color: Colors.grey,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                                              children: [
-                                                const Text(
-                                                  'To view full profiles, you need an active subscription.',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    color: Colors.grey,
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                                const SizedBox(height: 20),
-                                                ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: Colors.pinkAccent,
-                                                    foregroundColor: Colors.white,
-                                                    padding: const EdgeInsets.symmetric(vertical: 12),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(10),
-                                                    ),
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.of(context).pop(); // Close the dialog
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) => AddCreditsScreen(), // Navigate to subscription screen
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: const Text(
-                                                    'View Subscription Plans',
-                                                    style: TextStyle(
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(15),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.of(context).pop(),
-                                                child: const Text('Cancel'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    } else {
-                                      // Handle other error cases
-                                      _showErrorSnackBar('Unable to unlock profile');
-                                    }
-                                  }
-                                } catch (e) {
-                                  _showErrorSnackBar('Error checking profile: $e');
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white24,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.person,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                          // User Info
-                          Positioned(
-                            bottom: 70,
-                            left: 16,
-                            right: 16,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    // User Details
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            profile['name'],
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w800,
-                                              color: Colors.white,
-                                              letterSpacing: 0.5,
-                                              shadows: [
-                                                Shadow(
-                                                  blurRadius: 10.0,
-                                                  color: Colors.black45,
-                                                  offset: Offset(1.0, 1.0),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                           
-                                              const SizedBox(width: 4),
-                                              Expanded(
-                                                child: Text(
-                                                  profile['bio'] ?? 'No bio available',
-                                                  style: TextStyle(
-                                                    fontSize: 15,
-                                                    color: Colors.white70,
-                                                    fontStyle: profile['bio'] == null ? FontStyle.italic : FontStyle.normal,
-                                                    fontWeight: FontWeight.w300,
-                                                  ),
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
+                                            const SizedBox(height: 20),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.pinkAccent,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(10),
                                                 ),
                                               ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            width: double.infinity,
-                                            height: 2,
-                                            color: Colors.white30,
-                                            margin: const EdgeInsets.symmetric(vertical: 4),
-                                          ),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on_outlined,
-                                                color: Colors.white70,
-                                                size: 16,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                profile['location'] ?? 'Location not specified',
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => AddCreditsScreen(),
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text(
+                                                'View Subscription Plans',
                                                 style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.white70,
-                                                  fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
                                               ),
-                                            ],
+                                            ),
+                                          ],
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(15),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            child: const Text('Cancel'),
                                           ),
                                         ],
-                                      ),
-                                    ),
-                                  ],
+                                      );
+                                    },
+                                  );
+                                } else {
+                                  _showErrorSnackBar('Unable to unlock profile');
+                                }
+                              }
+                            } catch (e) {
+                              _showErrorSnackBar('Error checking profile: $e');
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 70,
+                        left: 16,
+                        right: 16,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile['name'] ?? 'No Name',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                                shadows: [
+                                  Shadow(
+                                    blurRadius: 10.0,
+                                    color: Colors.black45,
+                                    offset: Offset(1.0, 1.0),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+
+                            const SizedBox(height: 4),
+                            Container(
+                              width: double.infinity,
+                              height: 2,
+                              color: Colors.white30,
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                            ),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  color: Colors.white70,
+                                  size: 16,
                                 ),
-                                const SizedBox(height: 12),
-                                // Action Buttons
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    _buildActionButton(
-                                      Icons.close,
-                                      Colors.red,
-                                      () async {
-                                        if (_currentUserId != 0) {
-                                          await handleSwipe(
-                                            swipeType: 'dislike',
-                                            swipedUserId: _currentUserId,
-                                            swipedOnId: userId,
-                                          );
-                                          setState(() {
-                                            _matches.removeAt(index);
-                                          });
-                                        }
-                                      },
-                                    ),
-                                    _buildActionButton(
-                                      Icons.favorite,
-                                      Colors.red,
-                                      () async {
-                                        if (_currentUserId != 0) {
-                                          await handleSwipe(
-                                            swipeType: 'like',
-                                            swipedUserId: _currentUserId,
-                                            swipedOnId: userId,
-                                          );
-                                          setState(() {
-                                            _matches.removeAt(index);
-                                          });
-                                        }
-                                      },
-                                    ),
-                                  ],
+                                const SizedBox(width: 4),
+                                Text(
+                                 '$distanceString kms'?? 'Location not specified',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                    fontStyle: distanceString == null ? FontStyle.italic : FontStyle.normal,
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        bottom: 0,
+                        left: 16,
+                        right: 16,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _buildActionButtons(
+                              Icons.close,
+                              Colors.red,
+                              () async {
+                                if (_currentUserId != 0) {
+                                  await handleSwipe(
+                                    swipeType: 'dislike',
+                                    swipedUserId: _currentUserId,
+                                    swipedOnId: userId,
+                                  );
+                                  setState(() {
+                                    _matches.removeAt(index);
+                                  });
+                                }
+                              },
+                            ),
+                            _buildActionButtons(
+                              Icons.favorite,
+                              Colors.red,
+                              () async {
+                                if (_currentUserId != 0) {
+                                  await handleSwipe(
+                                    swipeType: 'like',
+                                    swipedUserId: _currentUserId,
+                                    swipedOnId: userId,
+                                  );
+                                  setState(() {
+                                    _matches.removeAt(index);
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ),
         ),
       ],
