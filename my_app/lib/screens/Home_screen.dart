@@ -65,31 +65,44 @@ SingleTickerProviderStateMixin {
   int? _creditScore;// Initialize with a default value
 
   // Function to fetch matches from the API
-  Future<List<dynamic>> _fetchMatches() async {
-    try {
+
+
+Future<void> _fetchMatches() async {
+  setState(() {
+    _isLoading = true; // Start loading
+  });
+
+  try {
+    if (accessToken == null) {
+      await _loadTokens();
       if (accessToken == null) {
-        await _loadTokens();
-        if (accessToken == null) {
-          throw Exception('Access token not available');
-        }
+        throw Exception('Access token not available');
       }
+    }
 
-      final response = await _authenticatedRequest(
-        '$baseurl/auth/connections/',
-        'GET',
-      );
+    final response = await _authenticatedRequest(
+      '$baseurl/auth/connections/',
+      'GET',
+    );
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['matches'];
-      } else {
-        throw Exception('Failed to load matches');
-      }
-    } catch (e) {
-      print('Error fetching matches: $e');
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        _matches = data['matches'] ?? [];
+        _isLoading = false; // Stop loading
+      });
+    } else {
+      print('Failed to load matches: ${response.statusCode}');
       throw Exception('Failed to load matches');
     }
+  } catch (e) {
+    print('Error fetching matches: $e');
+    setState(() {
+      _isLoading = false; // Stop loading
+    });
+    throw Exception('Failed to load matches');
   }
+}
 
   // Add token loading function
   Future<void> _loadTokens() async {
@@ -248,46 +261,24 @@ SingleTickerProviderStateMixin {
     _loggedInUserId = await _fetchLoggedInUserId();
   }
 
-  @override
+@override
 void initState() {
   super.initState();
-  _tabController = TabController(length: 3, vsync: this); // Initialize with the correct length
+  _tabController = TabController(length: 3, vsync: this);
 
-  // Set the system navigation bar color to red and icon color to white
-  // SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-  //   systemNavigationBarColor: Color.fromARGB(255, 250, 16, 106), // Set the background color to red
-  //   systemNavigationBarIconBrightness: Brightness.light, // Set the icon brightness to light
-  // ));
-
-  // Initialize with passed tokens if available
   if (widget.accessToken != null && widget.refreshToken != null) {
     accessToken = widget.accessToken;
     refreshToken = widget.refreshToken;
-
-    // Fetch user details, matches, and credit score
-    _fetchUserDetails().then((_) {
-      _fetchMatches().then((matches) {
-        setState(() {
-          _matches = matches;
-        });
-      });
-      _fetchCreditScore(); // Fetch credit score after user details
-    });
-    fetchCurrentUserId();
   } else {
-    // Fallback to loading from SharedPreferences
-    _loadTokens().then((_) {
-      _fetchUserDetails().then((_) {
-        _fetchMatches().then((matches) {
-          setState(() {
-            _matches = matches;
-          });
-        });
-        _fetchCreditScore(); // Fetch credit score after user details
-      });
-      fetchCurrentUserId();
-    });
+    _loadTokens();
   }
+
+  _fetchUserDetails().then((_) {
+    _fetchMatches().then((_) {
+      _fetchCreditScore();
+    });
+  });
+  fetchCurrentUserId();
 }
 
   @override
@@ -348,7 +339,7 @@ void _showFilterScreen() async {
                   // Interested In dropdown
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'Interested In'),
-                    items: ['Option 1', 'Option 2', 'Option 3']
+                    items: ['Casual dating','Serious Relationship', 'Friendship']
                         .map((String value) {
                       return DropdownMenuItem<String>(
                           value: value, child: Text(value));
@@ -537,6 +528,7 @@ Widget build(BuildContext context) {
               ),
               label: '', // Remove the label
             ),
+            
             BottomNavigationBarItem(
               icon: Stack(
                 children: [
@@ -2007,24 +1999,53 @@ Widget _buildActionButtons(IconData icon, Color color, VoidCallback onPressed) {
 
 // Call fetchCurrentUserId on the widget's initState
   // Update the Suggested Matches section
-Container _buildSuggestedMatches() {
+Widget _buildSuggestedMatches() {
+  // Check if data is still loading
+  if (_isLoading) {
+    return Center(child: CircularProgressIndicator());
+  }
+
+  // Check if _matches is empty
+  if (_matches.isEmpty) {
+    print('_matches is empty'); // Debug print
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.swipe, // Icon to signify swiping
+            size: 70,
+            color: Colors.grey[700],
+          ),
+          SizedBox(height: 20), // Add some space between the icon and text
+          Text(
+            'You have run out of people to swipe on !',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   return Container(
     padding: const EdgeInsets.all(16.0),
-    height: double.infinity, // Make the parent container take the available space
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 10),
-        Expanded( // Use Expanded to make the SizedBox take the remaining space
+        Expanded(
           child: SizedBox(
-            // height: MediaQuery.of(context).size.height * 0.7, // No longer needed
+            height: 500, // Increased height from 400 to 500
             child: Stack(
-              clipBehavior: Clip.none, // Allow children to render outside the bounds
+              clipBehavior: Clip.none,
               children: List.generate(_matches.length, (index) {
                 final match = _matches[index];
                 final profile = match['profile'];
-                final distance = match['distance_km'];
-                final distanceString = distance.toString();
                 final userId = match['user_id'];
 
                 return Dismissible(
@@ -2090,6 +2111,10 @@ Container _buildSuggestedMatches() {
                         child: Image.network(
                           '$baseurl${profile['profile_picture']}',
                           fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Image.asset(
+                            'assets/default_profile_picture.png',
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                       Container(
@@ -2109,107 +2134,8 @@ Container _buildSuggestedMatches() {
                         top: 16,
                         left: 16,
                         child: GestureDetector(
-                          onTap: () async {
-                            try {
-                              final accessToken = await _getAccessToken();
-                              if (accessToken == null) {
-                                _showErrorSnackBar('Access token is missing');
-                                return;
-                              }
-
-                              final response = await http.get(
-                                Uri.parse('$baseurl/auth/unlocked-profiles/'),
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'Authorization': 'Bearer $accessToken',
-                                },
-                              );
-
-                              if (response.statusCode == 200) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => UserProfileScreen(
-                                      user: profile,
-                                      user1Id: _currentUserId,
-                                      user2Id: userId,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                final responseBody = json.decode(response.body);
-                                if (responseBody['detail'] == 'Subscription plan not found.') {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: const Text(
-                                          'Unlock Profiles',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.pinkAccent
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Text(
-                                              'To view full profiles, you need an active subscription.',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: Colors.grey,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                            const SizedBox(height: 20),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.pinkAccent,
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                              ),
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => AddCreditsScreen(),
-                                                  ),
-                                                );
-                                              },
-                                              child: const Text(
-                                                'View Subscription Plans',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(15),
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(),
-                                            child: const Text('Cancel'),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                } else {
-                                  _showErrorSnackBar('Unable to unlock profile');
-                                }
-                              }
-                            } catch (e) {
-                              _showErrorSnackBar('Error checking profile: $e');
-                            }
+                          onTap: () {
+                            // Handle profile tap
                           },
                           child: Container(
                             padding: const EdgeInsets.all(8),
@@ -2249,8 +2175,6 @@ Container _buildSuggestedMatches() {
                               ),
                             ),
                             const SizedBox(height: 6),
-
-                            const SizedBox(height: 4),
                             Container(
                               width: double.infinity,
                               height: 2,
@@ -2266,11 +2190,11 @@ Container _buildSuggestedMatches() {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                 '$distanceString kms'?? 'Location not specified',
+                                  profile['location'] ?? 'Location not specified',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.white70,
-                                    fontStyle: distanceString == null ? FontStyle.italic : FontStyle.normal,
+                                    fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
                                   ),
                                 ),
                               ],
@@ -2320,6 +2244,20 @@ Container _buildSuggestedMatches() {
                           ],
                         ),
                       ),
+                      // Like image for swipe effect
+                      Positioned(
+                        right: 20,
+                        bottom: 20,
+                        child: AnimatedOpacity(
+                          opacity: _matches.isNotEmpty ? 1.0 : 0.0,
+                          duration: Duration(milliseconds: 500),
+                          child: Image.asset(
+                            'assets/like.png', // Replace with your like PNG image
+                            width: 50,
+                            height: 50,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -2331,7 +2269,6 @@ Container _buildSuggestedMatches() {
     ),
   );
 }
-
 // Placeholder for Search tab
 Widget _buildSearchScreen() {
   return const Center(
