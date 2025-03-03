@@ -57,6 +57,7 @@ SingleTickerProviderStateMixin {
   SharedPreferences? prefs;
   String? accessToken;
   String? refreshToken;
+   bool _isLikeOverlayVisible = false;
 
   // Add variables to store user details
   String? _userName;
@@ -2050,6 +2051,18 @@ Widget _buildSuggestedMatches() {
 
                 return Dismissible(
                   key: Key(userId.toString()),
+                  direction: DismissDirection.horizontal,
+                  onUpdate: (details) {
+                    if (details.direction == DismissDirection.startToEnd) {
+                      setState(() {
+                        _isLikeOverlayVisible = true;
+                      });
+                    } else {
+                      setState(() {
+                        _isLikeOverlayVisible = false;
+                      });
+                    }
+                  },
                   onDismissed: (direction) async {
                     if (_currentUserId != 0) {
                       final isLiked = direction == DismissDirection.startToEnd;
@@ -2244,18 +2257,28 @@ Widget _buildSuggestedMatches() {
                           ],
                         ),
                       ),
-                      // Like image for swipe effect
+                      // New Like Image Overlay
                       Positioned(
-                        right: 20,
-                        bottom: 20,
-                        child: AnimatedOpacity(
-                          opacity: _matches.isNotEmpty ? 1.0 : 0.0,
-                          duration: Duration(milliseconds: 500),
-                          child: Image.asset(
-                            'assets/like.png', // Replace with your like PNG image
-                            width: 50,
-                            height: 50,
-                          ),
+                        top: 0,
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return AnimatedOpacity(
+                              opacity: _isLikeOverlayVisible ? 1.0 : 0.0,
+                              duration: Duration(milliseconds: 300),
+                              child: Center(
+                                child: _isLikeOverlayVisible
+                                    ? Image.asset(
+                                        'assets/like.png',
+                                        width: constraints.maxWidth * 0.6,
+                                        height: constraints.maxHeight * 0.6,
+                                      )
+                                    : Container(),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
