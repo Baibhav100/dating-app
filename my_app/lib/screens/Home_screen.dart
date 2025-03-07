@@ -1,7 +1,9 @@
 import 'dart:ui';
+import 'package:photo_view/photo_view.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:http/http.dart' as http;
 // ignore: unused_import
 import 'ProfileScreen.dart';
 import 'Welcome.dart';
@@ -21,6 +23,8 @@ import 'package:my_app/screens/UserProfileScreen.dart';
 import 'premium.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
+import 'notification.dart';
+import 'package:flutter_animated_dialog_updated/flutter_animated_dialog.dart';
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
@@ -495,9 +499,16 @@ Widget build(BuildContext context) {
                         child: _buildHomeScreen(),
                       ),
                       // Matches screen with refresh
-                      RefreshIndicator(
+                   
+
+                        RefreshIndicator(
                         onRefresh: () => RefreshHelper.onMatchesRefresh(context),
                         child: _buildMatchesScreen(),
+                      ),
+
+                         RefreshIndicator(
+                        onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+                        child: _buildVIPContent(),
                       ),
                       // Chat screen with refresh
                       RefreshIndicator(
@@ -529,18 +540,28 @@ Widget build(BuildContext context) {
               ),
               label: '', // Remove the label
             ),
+                BottomNavigationBarItem(
+              icon: Stack(
+                children: [
+                   _buildAnimatedIcon(Icons.star, 2),
+                  // Notification badge for new matches
+                ],
+              ),
+              label: '', // Remove the label
+            ),
+            
             
             BottomNavigationBarItem(
               icon: Stack(
                 children: [
-                  _buildAnimatedIcon(Icons.chat_bubble, 2),
+                  _buildAnimatedIcon(Icons.chat_bubble, 3),
                   // Notification badge for unread messages
                 ],
               ),
               label: '', // Remove the label
             ),
             BottomNavigationBarItem(
-              icon: _buildAnimatedIcon(Icons.person, 3),
+              icon: _buildAnimatedIcon(Icons.person, 4),
               label: '', // Remove the label
             ),
           ],
@@ -563,7 +584,6 @@ Widget build(BuildContext context) {
     ),
   );
 }
-
 void _showSettingsBottomSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
@@ -576,7 +596,11 @@ void _showSettingsBottomSheet(BuildContext context) {
         height: MediaQuery.of(context).size.height * 0.9 - MediaQuery.of(context).padding.bottom,
         child: Scaffold(
           appBar: AppBar(
-            title: Text(
+              leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+            onPressed: () => Navigator.pop(context),
+          ),
+                    title: Text(
               'Discover Settings',
               style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold), // Set the text color to primaryColor
             ),
@@ -626,7 +650,7 @@ void _showSettingsBottomSheet(BuildContext context) {
                 leading: Icon(Icons.notifications, color: primaryColor),
                 title: Text('Notifications', style: TextStyle(color: textColor)),
                 onTap: () {
-                  // Navigate to Notifications Screen
+                 
                 },
               ),
               ListTile(
@@ -1639,115 +1663,82 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
 // Home tab with header
 Widget _buildHomeScreen() {
   return Scaffold(
-    appBar: AppBar(
-      systemOverlayStyle: SystemUiOverlayStyle(
-        statusBarColor: Colors.white,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
-      backgroundColor: Colors.white, // Customize the background color
-      leading: Row(
-        mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
-        children: [
-          Container(
-            width: 45, // Set the desired width
-            height: 45, // Set the desired height
-            margin: EdgeInsets.all(6), // Optional: Add some margin if needed
-            child: CircleAvatar(
-              radius: 24, // Adjust the radius as needed
-              backgroundImage: _profilePicture != null
-                  ? NetworkImage('$baseurl$_profilePicture')
-                  : null,
-            ),
+appBar: AppBar(
+  systemOverlayStyle: SystemUiOverlayStyle(
+    statusBarColor: Colors.white,
+    statusBarIconBrightness: Brightness.dark,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ),
+  backgroundColor: Colors.white, // Customize the background color
+  leading: Row(
+    mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
+    crossAxisAlignment: CrossAxisAlignment.center, // Center the children vertically
+    children: [
+      Container(
+        width: 36, // Reduced width to fit better
+        height: 36, // Reduced height to fit better
+        margin: EdgeInsets.all(3), // Reduced margin
+        child: ClipOval(
+          child: CircleAvatar(
+            radius: 18, // Adjusted radius to fit within the Container
+            backgroundImage: _profilePicture != null
+                ? NetworkImage('$baseurl$_profilePicture')
+                : null,
           ),
-          SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
-          TweenAnimationBuilder<int>(
-            tween: IntTween(begin: 0, end: _creditScore ?? 0),
-            duration: const Duration(seconds: 2),
-            builder: (context, value, child) {
-              return Text(
-                '$value',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color.fromARGB(255, 112, 117, 120),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      actions: [
-
-            IconButton(
-              icon: const Icon(Icons.filter_alt, color: Colors.pinkAccent, size: 20), // Add filter button
-              onPressed: _showFilterScreen,
-            ),
-        IconButton(
-          icon: Icon(Icons.notifications),
-          onPressed: () {
-            // Handle notification icon tap
-          },
         ),
-        IconButton(
-          icon: Icon(Icons.settings),
-         onPressed: () {
-          _showSettingsBottomSheet(context);
+      ),
+      SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
+      TweenAnimationBuilder<int>(
+        tween: IntTween(begin: 0, end: _creditScore ?? 0),
+        duration: const Duration(seconds: 2),
+        builder: (context, value, child) {
+          return Text(
+            '$value',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Color.fromARGB(255, 112, 117, 120),
+            ),
+          );
         },
-        ),
-      ],
+      ),
+    ],
+  ),
+  actions: [
+    IconButton(
+      icon: const Icon(Icons.filter_alt, color: Colors.pinkAccent, size: 20), // Add filter button
+      onPressed: _showFilterScreen,
     ),
+    IconButton(
+      icon: Icon(Icons.notifications),
+      onPressed: () {
+        // Navigate to the NotificationScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => NotificationScreen()),
+        );
+      },
+    ),
+    IconButton(
+      icon: Icon(Icons.settings),
+      onPressed: () {
+        _showSettingsBottomSheet(context);
+      },
+    ),
+  ],
+),
     body: Column(
-      children: [
-        // Uncomment the TabBar if you want to use it
-        // Container(
-        //   child: TabBar(
-        //     controller: _tabController,
-        //     indicatorColor: Colors.pinkAccent,
-        //     labelColor: Colors.pinkAccent,
-        //     unselectedLabelColor: Colors.grey,
-        //     labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        //     unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        //     tabs: const [
-        //       Tab(child: Text('All')),
-        //       Tab(child: Text('Boosted')),
-        //       Tab(child: Text('Premium')),
-        //     ],
-        //   ),
-        // ),
+       children: [
         Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: 0,
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
-                  ),
-                  child: _buildSuggestedMatches(),
-                ),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: 0,
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
               ),
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: 0,
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
-                  ),
-                  child: _buildVIPContent(),
-                ),
-              ),
-              SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: 0,
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
-                  ),
-                  child: _buildPremiumContent(),
-                ),
-              ),
-            ],
+              child: _buildSuggestedMatches(),
+            ),
           ),
         ),
       ],
@@ -1760,15 +1751,15 @@ Widget _buildHomeScreen() {
  
   }
 
-  Widget _buildViewsContent() {
-    return Center(
-      child: Text('Views Content'),
-    );
-  }
+  // Widget _buildViewsContent() {
+  //   return Center(
+  //     child: Text('Views Content'),
+  //   );
+  // }
 
-  Widget _buildPremiumContent() {
-    return PremiumScreen();
-  }
+  // Widget _buildPremiumContent() {
+  //   return PremiumScreen();
+  // }
 
   Future<void> fetchCurrentUserId() async {
     final url = Uri.parse('$baseurl/auth/user-details/');
@@ -1923,7 +1914,7 @@ Widget _buildHomeScreen() {
 
 // Function to send swipe action to the backend
 
-Future<void> handleSwipe({
+Future<http.Response> handleSwipe({
   required int swipedUserId,
   required int swipedOnId,
   required String swipeType,
@@ -1931,7 +1922,7 @@ Future<void> handleSwipe({
   // Validate input parameters
   if (swipedUserId <= 0) {
     print('Invalid swiper user ID');
-    return;
+    return http.Response('Invalid user ID', 400);
   }
 
   final url = '$baseurl/auth/swipe/';
@@ -1941,7 +1932,7 @@ Future<void> handleSwipe({
 
     if (accessToken == null) {
       print('Error: Access token is null.');
-      return;
+      return http.Response('Access token is null', 401);
     }
 
     final headers = {
@@ -1958,9 +1949,9 @@ Future<void> handleSwipe({
     // Print the body to console
     print('Request Body: $body');
 
-    final response = await _authenticatedRequest(
-      url,
-      'POST',
+    final response = await http.post(
+      Uri.parse(url),
+      headers: headers,
       body: body,
     );
 
@@ -1969,14 +1960,16 @@ Future<void> handleSwipe({
     } else {
       print('Swipe action failed. Status: ${response.statusCode}');
     }
+
+    return response;
   } catch (e) {
     print('Error sending swipe action: $e');
+    return http.Response('Error sending swipe action', 500);
   }
 }
 
-
 // Helper function for building action buttons
-Widget _buildActionButtons(IconData icon, Color color, VoidCallback onPressed) {
+Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPressed) {
   return Container(
     decoration: BoxDecoration(
       color: Colors.white,
@@ -1990,14 +1983,12 @@ Widget _buildActionButtons(IconData icon, Color color, VoidCallback onPressed) {
       ],
     ),
     child: IconButton(
-      icon: Icon(icon, color: color),
+      icon: buttonChild,
       onPressed: onPressed,
       iconSize: 38,
     ),
   );
 }
-
-
 // Call fetchCurrentUserId on the widget's initState
   // Update the Suggested Matches section
 Widget _buildSuggestedMatches() {
@@ -2215,49 +2206,143 @@ Widget _buildSuggestedMatches() {
                           ],
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        left: 16,
-                        right: 16,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildActionButtons(
-                              Icons.close,
-                              Colors.red,
-                              () async {
-                                if (_currentUserId != 0) {
-                                  await handleSwipe(
-                                    swipeType: 'dislike',
-                                    swipedUserId: _currentUserId,
-                                    swipedOnId: userId,
-                                  );
-                                  setState(() {
-                                    _matches.removeAt(index);
-                                  });
-                                }
-                              },
-                            ),
-                            _buildActionButtons(
-                              Icons.favorite,
-                              Colors.red,
-                              () async {
-                                if (_currentUserId != 0) {
-                                  await handleSwipe(
-                                    swipeType: 'like',
-                                    swipedUserId: _currentUserId,
-                                    swipedOnId: userId,
-                                  );
-                                  setState(() {
-                                    _matches.removeAt(index);
-                                  });
-                                }
-                              },
-                            ),
-                          ],
+                    Positioned(
+                          bottom: 0,
+                          left: 16,
+                          right: 16,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildActionButtons(
+                                Icon(Icons.close, color: Colors.red),
+                                Colors.red,
+                                () async {
+                                  if (_currentUserId != 0) {
+                                    await handleSwipe(
+                                      swipeType: 'dislike',
+                                      swipedUserId: _currentUserId,
+                                      swipedOnId: userId,
+                                    );
+                                    setState(() {
+                                      _matches.removeAt(index);
+                                    });
+                                  }
+                                },
+                              ),
+                           _buildActionButtons(
+  Image.asset('assets/star.png', width: 32, height: 32, color: Colors.blue),
+  Colors.blue,
+  () async {
+    if (_currentUserId != 0) {
+      // Perform the superlike action
+      final response = await handleSwipe(
+        swipeType: 'superlike',
+        swipedUserId: _currentUserId,
+        swipedOnId: userId,
+      );
+
+      // Check if the response status is 200
+      if (response != null && response.statusCode == 200) {
+        // Show a popup indicating superlike
+        await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('Superlike!'),
+              content: Text('You have superliked ${profile['name']}'),
+              actions: <Widget>[
+                TextButton(
+                  child: Text('OK'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+
+        // Remove the card from the list
+        setState(() {
+          _matches.removeAt(index);
+        });
+      } else if (response != null && response.statusCode == 403) {
+        // Show a popup indicating the user is not subscribed to any plans
+await showDialog(
+  context: context,
+  builder: (BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.black, // Dark theme background
+      title: Text(
+        'Subscription Required',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Image.asset(
+          //   'assets/subscription.png', // Replace with your image path
+          //   width: 100,
+          //   height: 100,
+          // ),
+          SizedBox(height: 16),
+          Text(
+            'You are not subscribed to any plans. Please get one.',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          child: Text(
+            'OK',
+            style: TextStyle(
+              color: Colors.blue,
+              fontSize: 16,
+            ),
+          ),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      ],
+    );
+  },
+);
+      } else {
+        // Handle other status codes if necessary
+        print('Swipe action failed. Status: ${response?.statusCode}');
+      }
+    }
+  },
+),
+                              _buildActionButtons(
+                                Icon(Icons.favorite, color: Colors.red),
+                                Colors.red,
+                                () async {
+                                  if (_currentUserId != 0) {
+                                    await handleSwipe(
+                                      swipeType: 'like',
+                                      swipedUserId: _currentUserId,
+                                      swipedOnId: userId,
+                                    );
+                                    setState(() {
+                                      _matches.removeAt(index);
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      // New Like Image Overlay
+                                              // New Like Image Overlay
                       Positioned(
                         top: 0,
                         bottom: 0,
@@ -2292,6 +2377,8 @@ Widget _buildSuggestedMatches() {
     ),
   );
 }
+
+
 // Placeholder for Search tab
 Widget _buildSearchScreen() {
   return const Center(
