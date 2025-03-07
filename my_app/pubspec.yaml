@@ -32,7 +32,11 @@ dependencies:
   web_socket_channel: ^2.4.0
   in_app_purchase: ^3.0.9
   base64: 1.0.0
-  intl: ^0.18.0 
+  intl: ^0.18.0
+  geolocator: ^10.1.0
+  photo_view: ^0.14.0
+  flutter_animated_dialog_updated: ^1.0.1
+  firebase_messaging: ^15.2.4
 
 dev_dependencies:
   flutter_test:

@@ -30,9 +30,17 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   // Variables
   String? selectedGender;
   File? profilePicture;
+  int ? minAge;
+  int ? maxAge;
+  String ? selectedGenderPreference;
+  String? selectedRelationshipType;
   File? coverPicture;
   File? videoProfile;
+    bool _isLoading = false;
+  String? _error;
+   String? _username;
   List<Map<String, dynamic>> interests = [];
+  List<int> lookingForInterests = [];
 
   final _apiEndpoint = '$baseurl/auth/create_profile/';
 
@@ -73,6 +81,57 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
       );
     }
   }
+
+
+
+
+  //   Future _fetchUserDetails() async {
+  //   setState(() {
+  //     _isLoading = true;
+  //     _error = null;
+  //   });
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final accessToken = prefs.getString('access_token');
+  //     if (accessToken == null) {
+  //       setState(() {
+  //         _error = "Access token is missing. Please log in again.";
+  //         _isLoading = false;
+  //       });
+  //       return;
+  //     }
+  //     final response = await http.get(
+  //       Uri.parse('${baseurl}/auth/user-details/'),
+  //       headers: {
+  //         'Authorization': 'Bearer $accessToken',
+  //       },
+  //     );
+  //     if (response.statusCode == 200) {
+  //       final data = json.decode(response.body);
+  //       if (data['user'] != null) {
+  //         setState(() {
+  //           _username = data['user']['username'];
+  //         });
+  //       } else {
+  //         setState(() {
+  //           _error = "User details not found in response";
+  //         });
+  //       }
+  //     } else {
+  //       setState(() {
+  //         _error = "Failed to fetch user details. Status: ${response.statusCode}";
+  //       });
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       _error = "Error fetching user details: $e";
+  //     });
+  //   } finally {
+  //     setState(() {
+  //       _isLoading = false;
+  //     });
+  //   }
+  // }
 
   // Fetch interest names from the correct endpoint
   Future<void> _fetchInterests() async {
@@ -154,6 +213,86 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
       );
     }
   }
+Future _createLookingForPreferences() async {
+  final prefs = await SharedPreferences.getInstance();
+  final accessToken = prefs.getString('access_token');
+  if (accessToken == null) {
+    setState(() {
+      _error = "Access token is missing. Please log in again.";
+    });
+    return;
+  }
+  if (selectedGenderPreference == null ||
+      minAge == null ||
+      maxAge == null ||
+      selectedRelationshipType == null ||
+      interests.isEmpty) {
+    setState(() {
+      _error = "Please fill in all partner preference fields and select at least one interest.";
+    });
+    return;
+  }
+
+  try {
+    // Fetch user details
+    final userDetailsResponse = await http.get(
+      Uri.parse('${baseurl}/auth/user-details/'),
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (userDetailsResponse.statusCode == 200) {
+      final userDetails = json.decode(userDetailsResponse.body);
+      final userId = userDetails['user']['id']; // Extract the user id
+
+      // Prepare payload for looking-for endpoint
+      final payload = {
+     'user': userId, // Include only the user id
+      'gender_preference': selectedGenderPreference,
+      'min_age': minAge,
+      'max_age': maxAge,
+      'relationship_type': selectedRelationshipType,
+      'interests': lookingForInterests // Use lookingForInterests instead of selectedInterests 
+      };
+
+      print('Sending LookingFor payload: $payload');
+
+      // Send request to looking-for endpoint
+      final response = await http.post(
+        Uri.parse('${baseurl}/auth/looking-for/'),
+        headers: {
+          'Authorization': 'Bearer $accessToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(payload),
+      );
+
+      print('LookingFor Response status: ${response.statusCode}');
+      print('LookingFor Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'])),
+        );
+      } else {
+        final errorData = json.decode(response.body);
+        setState(() {
+          _error = errorData.values.join('\n');
+        });
+      }
+    } else {
+      setState(() {
+        _error = "Failed to fetch user details.";
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _error = "Error creating LookingFor preferences: $e";
+    });
+  }
+}
 
   // Submit Form
   Future<void> submitForm() async {
@@ -173,6 +312,11 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     print('Gender: $selectedGender');
     print('Bio: ${bioController.text}');
     print('Selected Interests: $selectedInterests'); // Ensure this is populated
+    print('Gender Prefereneces: $selectedGenderPreference'); // Ensure this is populated
+    print('min age $minAge'); // Ensure this is populated
+    print('max_age: $maxAge'); // Ensure this is populated
+     print('relationship_type: $selectedRelationshipType'); // Ensure this is populated
+      await _createLookingForPreferences();
 
     var request = http.MultipartRequest('POST', Uri.parse(_apiEndpoint));
 
@@ -188,7 +332,11 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
     if (selectedInterests.isNotEmpty) {
       request.fields['interests'] = selectedInterests.join(','); // Ensure IDs are sent
     }
-
+// preferences
+    request.fields['gender_preference'] = selectedGenderPreference ?? '';
+    request.fields['min_age'] = minAge.toString();
+    request.fields['max_age'] = maxAge.toString();
+    request.fields['relationship_type'] = selectedRelationshipType ?? '';
     // Add files to the request if they exist
     if (profilePicture != null) {
         request.files.add(await http.MultipartFile.fromPath(
@@ -245,47 +393,54 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent, // Set transparent to see SafeArea color
-      body: SafeArea(
-        child: Container(
-          color: const Color.fromARGB(255, 255, 255, 255), // Set background color here
-          width: double.infinity, // Ensure full width
-          height: MediaQuery.of(context).size.height, // Ensure full height
-          padding: EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Show previous arrow only if we're not on the first step
-              if (currentStep > 0)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.arrow_back),
-                      onPressed: () {
-                        setState(() {
-                          currentStep--; // Move back to the previous section
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              Expanded(
-                child: currentStep == 0
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.transparent, // Set transparent to see SafeArea color
+    body: SafeArea(
+      child: Container(
+        color: const Color.fromARGB(255, 255, 255, 255), // Set background color here
+        width: double.infinity, // Ensure full width
+        height: MediaQuery.of(context).size.height, // Ensure full height
+        padding: EdgeInsets.all(16),
+        child: RefreshIndicator(
+          onRefresh: _fetchInterests, // Call _fetchInterests when refreshing
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // Show previous arrow only if we're not on the first step
+                if (currentStep > 0)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.arrow_back),
+                        onPressed: () {
+                          setState(() {
+                            currentStep--; // Move back to the previous section
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                // Directly use the conditional widget without Flexible
+                currentStep == 0
                     ? _buildPersonalInfoSection()
                     : currentStep == 1
                         ? _buildInterestSection()
+                    : currentStep == 2
+                        ? _buildPreferences()
+                    : currentStep == 3
+                        ? _buildPreferenceInterestSection()
                         : _buildMediaSection(),
-              ),
-              _buildNavigationButtons(),
-            ],
+                _buildNavigationButtons(),
+              ],
+            ),
           ),
         ),
       ),
-    );
-  }
-
+    ),
+  );
+}
   Widget _buildPersonalInfoSection() {
     return SingleChildScrollView(
       child: Padding(
@@ -406,7 +561,234 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
       ),
     );
   }
+Widget _buildPreferences() {
+  return SingleChildScrollView(
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10.0),
+              child: Text(
+                'Partner Preferences',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 29,
+                  fontWeight: FontWeight.bold,
+                  color: const Color.fromARGB(221, 207, 59, 116),
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5.0),
+              child: Text(
+                'Tell us more about your preferences so we can help you find the perfect match.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
 
+          // Gender Preference
+          DropdownButtonFormField<String>(
+            value: selectedGenderPreference,
+            decoration: InputDecoration(
+              labelText: 'Gender Preference',
+              labelStyle: TextStyle(color: Colors.grey[700]),
+              filled: true,
+              fillColor: Colors.grey[200],
+              contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+              border: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+            items: ['Male', 'Female', 'Other'].map((gender) {
+              return DropdownMenuItem<String>(
+                value: gender,
+                child: Text(gender),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedGenderPreference = value;
+              });
+            },
+          ),
+          SizedBox(height: 20),
+
+          // Min Age
+          TextFormField(
+            decoration: InputDecoration(
+              labelText: 'Minimum Age',
+              labelStyle: TextStyle(color: Colors.grey[700]),
+              filled: true,
+              fillColor: Colors.grey[200],
+              contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+              border: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              setState(() {
+                minAge = int.tryParse(value);
+              });
+            },
+          ),
+          SizedBox(height: 20),
+
+          // Max Age
+          TextFormField(
+            decoration: InputDecoration(
+              labelText: 'Maximum Age',
+              labelStyle: TextStyle(color: Colors.grey[700]),
+              filled: true,
+              fillColor: Colors.grey[200],
+              contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+              border: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              setState(() {
+                maxAge = int.tryParse(value);
+              });
+            },
+          ),
+          SizedBox(height: 20),
+
+          // Relationship Type
+          DropdownButtonFormField<String>(
+            value: selectedRelationshipType,
+            decoration: InputDecoration(
+              labelText: 'Relationship Type',
+              labelStyle: TextStyle(color: Colors.grey[700]),
+              filled: true,
+              fillColor: Colors.grey[200],
+              contentPadding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+              border: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+            ),
+            items: ['Casual', 'Serious', 'Friendship'].map((type) {
+              return DropdownMenuItem<String>(
+                value: type,
+                child: Text(type),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                selectedRelationshipType = value;
+              });
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+Widget _buildPreferenceInterestSection() {
+  return SingleChildScrollView(  // Allow scrolling if content overflows
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween, // Justifies the space between the children
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            child: Text(
+              'Preferred Interests', // ✨ More engaging heading
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 29, // Bigger size for importance
+                fontWeight: FontWeight.bold,
+                color: const Color.fromARGB(221, 207, 59, 116),
+              ),
+            ),
+          ),
+        ),
+
+        // Paragraph - Centered
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 5.0),
+            child: Text(
+              'Select the interests you prefer in a partner to help us find better matches.',
+              textAlign: TextAlign.justify, // Justifies the text
+              style: TextStyle(
+                fontSize: 16, // Readable size
+                color: Colors.grey[700], // Softer text color
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: 10),
+        interests.isEmpty
+            ? Text('No interests found')
+            : Wrap(
+                spacing: 8.0,
+                runSpacing: 4.0,
+                children: interests.map((interest) {
+                  final id = interest['id'] as int;
+                  final name = interest['name'] as String;
+                  bool isSelected = lookingForInterests.contains(id);
+
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (isSelected) {
+                          lookingForInterests.remove(id);
+                        } else {
+                          lookingForInterests.add(id);
+                        }
+                      });
+                    },
+                    child: Chip(
+                      label: Text(name),
+                      backgroundColor: isSelected
+                          ? const Color.fromARGB(255, 177, 33, 93)
+                          : Color.fromARGB(255, 236, 236, 236),
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : const Color.fromARGB(255, 172, 62, 95),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+      ],
+    ),
+  );
+}
   // Media Section
   Widget _buildMediaSection() {
     return Column(
@@ -462,7 +844,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
   Widget _buildNavigationDots() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (index) {
+      children: List.generate(4, (index) {
         return Container(
           margin: EdgeInsets.symmetric(horizontal: 4.0),
           height: 10.0,
@@ -488,7 +870,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
         // Align the button at the bottom right
         Align(
           alignment: Alignment.bottomRight,
-          child: currentStep < 2
+          child: currentStep < 4
               ? OutlinedButton(
                   onPressed: () {
                     setState(() {
