@@ -26,6 +26,7 @@ import 'package:geolocator/geolocator.dart';
 import 'notification.dart';
 import 'package:flutter_animated_dialog_updated/flutter_animated_dialog.dart';
 
+
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
 
 
@@ -1453,7 +1454,6 @@ String _formatTimestamp(String timestamp) {
 // fetching user by id
 Future<Map<String, dynamic>> _fetchUserById(int userId) async {
   try {
-    print('Fetching user details for ID: $userId');
     final response = await http.get(
       Uri.parse('http://192.168.1.241:8000/auth/api/users/$userId/'),
       headers: {
@@ -2230,99 +2230,99 @@ Widget _buildSuggestedMatches() {
                                 },
                               ),
                            _buildActionButtons(
-  Image.asset('assets/star.png', width: 32, height: 32, color: Colors.blue),
-  Colors.blue,
-  () async {
-    if (_currentUserId != 0) {
-      // Perform the superlike action
-      final response = await handleSwipe(
-        swipeType: 'superlike',
-        swipedUserId: _currentUserId,
-        swipedOnId: userId,
-      );
+                              Image.asset('assets/star.png', width: 32, height: 32, color: Colors.blue),
+                              Colors.blue,
+                              () async {
+                                if (_currentUserId != 0) {
+                                  // Perform the superlike action
+                                  final response = await handleSwipe(
+                                    swipeType: 'superlike',
+                                    swipedUserId: _currentUserId,
+                                    swipedOnId: userId,
+                                  );
 
-      // Check if the response status is 200
-      if (response != null && response.statusCode == 200) {
-        // Show a popup indicating superlike
-        await showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text('Superlike!'),
-              content: Text('You have superliked ${profile['name']}'),
-              actions: <Widget>[
-                TextButton(
-                  child: Text('OK'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
+                                  // Check if the response status is 200
+                                  if (response != null && response.statusCode == 200) {
+                                    // Show a popup indicating superlike
+                                    await showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text('Superlike!'),
+                                          content: Text('You have superliked ${profile['name']}'),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: Text('OK'),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
 
-        // Remove the card from the list
-        setState(() {
-          _matches.removeAt(index);
-        });
-      } else if (response != null && response.statusCode == 403) {
-        // Show a popup indicating the user is not subscribed to any plans
-await showDialog(
-  context: context,
-  builder: (BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.black, // Dark theme background
-      title: Text(
-        'Subscription Required',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Image.asset(
-          //   'assets/subscription.png', // Replace with your image path
-          //   width: 100,
-          //   height: 100,
-          // ),
-          SizedBox(height: 16),
-          Text(
-            'You are not subscribed to any plans. Please get one.',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-      actions: <Widget>[
-        TextButton(
-          child: Text(
-            'OK',
-            style: TextStyle(
-              color: Colors.blue,
-              fontSize: 16,
-            ),
-          ),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
-    );
-  },
-);
-      } else {
-        // Handle other status codes if necessary
-        print('Swipe action failed. Status: ${response?.statusCode}');
-      }
-    }
-  },
-),
+                                    // Remove the card from the list
+                                    setState(() {
+                                      _matches.removeAt(index);
+                                    });
+                                  } else if (response != null && response.statusCode == 403) {
+                                    // Show a popup indicating the user is not subscribed to any plans
+                            await showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  backgroundColor: Colors.black, // Dark theme background
+                                  title: Text(
+                                    'Subscription Required',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      // Image.asset(
+                                      //   'assets/subscription.png', // Replace with your image path
+                                      //   width: 100,
+                                      //   height: 100,
+                                      // ),
+                                      SizedBox(height: 16),
+                                      Text(
+                                        'You are not subscribed to any plans. Please get one.',
+                                        style: TextStyle(
+                                          color: Colors.grey,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: <Widget>[
+                                    TextButton(
+                                      child: Text(
+                                        'OK',
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                                  } else {
+                                    // Handle other status codes if necessary
+                                    print('Swipe action failed. Status: ${response?.statusCode}');
+                                  }
+                                }
+                              },
+                            ),
                               _buildActionButtons(
                                 Icon(Icons.favorite, color: Colors.red),
                                 Colors.red,
@@ -2395,6 +2395,56 @@ Widget _buildChatScreen() {
  
 Future<void> updateUserLocation() async {
   try {
+    // Show loading dialog with improved design
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          elevation: 5,
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3.0,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Updating Location',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please wait while we update your location',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
     Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high
     );
@@ -2413,14 +2463,37 @@ Future<void> updateUserLocation() async {
       }),
     );
 
+    // Hide loading dialog
+    Navigator.of(context).pop();
+
     if (response.statusCode == 200) {
       print('Location updated successfully');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Location updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } else {
       print('Failed to update location: ${response.statusCode}');
       print('Response body: ${response.body}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update location'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   } catch (e) {
+    // Hide loading dialog in case of error
+    Navigator.of(context).pop();
     print('Error updating location: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error updating location: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 }
 }
