@@ -660,13 +660,20 @@ void _showSettingsBottomSheet(BuildContext context) {
                   // Navigate to Privacy Screen
                 },
               ),
+                   ListTile(
+                leading: Icon(Icons.privacy_tip, color: primaryColor),
+                title: Text('Privacy', style: TextStyle(color: textColor)),
+                onTap: () {
+                  // Navigate to Privacy Screen
+                },
+              ),
               Divider(),
                  ListTile(
                 leading: Icon(Icons.person_search, color: primaryColor),
                 title: Text('Looking For', style: TextStyle(color: textColor)),
                 trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
                 onTap: () {
-                  _showOptionBottomSheet(context, 'lookingFor');
+                
                 },
               ),
               ListTile(
