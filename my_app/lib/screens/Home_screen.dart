@@ -53,7 +53,7 @@ SingleTickerProviderStateMixin {
   int _currentUserId=0;
   bool _isLoading = false;
   String? _error;
-  
+  bool isIncognitoModeEnabled=false;
   // Filter values
   double _age = 18;
   double _distance = 5;
@@ -63,6 +63,7 @@ SingleTickerProviderStateMixin {
   String? accessToken;
   String? refreshToken;
    bool _isLikeOverlayVisible = false;
+    bool _isDislikeOverlayVisible = false;
 
   // Add variables to store user details
   String? _userName;
@@ -270,6 +271,7 @@ Future<void> _fetchMatches() async {
 @override
 void initState() {
   super.initState();
+    _loadIncognitoMode();
   _tabController = TabController(length: 3, vsync: this);
 
   if (widget.accessToken != null && widget.refreshToken != null) {
@@ -293,6 +295,130 @@ void initState() {
     super.dispose();
   }
 
+
+  // incognito mode
+Future<void> _loadIncognitoMode() async {
+  try {
+    final accessToken = await _getAccessToken();
+    if (accessToken == null) {
+      throw Exception('Access token not found');
+    }
+    bool incognitoActive = await checkIncognitoMode(accessToken);
+    setState(() {
+      isIncognitoModeEnabled = incognitoActive;
+    });
+  } catch (error) {
+    print('Error loading incognito mode: $error');
+  }
+}
+// checking the incognito mode
+Future<bool> checkIncognitoMode(String accessToken) async {
+  final response = await http.get(
+    Uri.parse('http://192.168.1.241:8000/auth/incognito/'),
+    headers: {
+      'Authorization': 'Bearer $accessToken',
+    },
+  );
+
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    return data['incognito_active'] ?? false;
+  } else {
+    throw Exception('Failed to load incognito mode status');
+  }
+}
+
+// update the incognito mode
+Future<void> updateIncognitoMode(bool active, String accessToken, BuildContext context) async {
+  final response = await http.put(
+    Uri.parse('http://192.168.1.241:8000/auth/incognito/'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    },
+    body: json.encode({'active': active}),
+  );
+
+  if (response.statusCode == 403) {
+    final data = json.decode(response.body);
+    if (data['error'] == "You don't have incognito mode privileges in any of your active plans. Please upgrade.") {
+      // Show a popup to the user
+      _showSubscriptionRequiredDialog(context);
+    }
+  } else if (response.statusCode != 200) {
+    throw Exception('Failed to update incognito mode');
+  }
+}
+
+void _showSubscriptionRequiredDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        backgroundColor: Colors.transparent, // Make the AlertDialog background transparent
+        content: Container(
+          width: double.maxFinite,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black87, // Darker color at the top
+                Colors.grey.shade800, // Lighter color at the bottom
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16), // Rounded corners
+          ),
+          
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 16), // Add some space at the top
+            Image.asset(
+    'assets/incognito.png',
+    color: const Color.fromARGB(255, 255, 255, 255),
+    width: 24,
+    height: 24,
+  ),
+              SizedBox(height: 16), // Add some space below the icon
+              Text(
+                'Subscription Required',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16), // Add some space below the title
+              Text(
+                'You have not subscribed to any plans. Please subscribe in order to enable incognito mode.',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24), // Add some space below the content
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'OK',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              SizedBox(height: 16), // Add some space at the bottom
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -593,138 +719,160 @@ void _showSettingsBottomSheet(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (context) {
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.9 - MediaQuery.of(context).padding.bottom,
-        child: Scaffold(
-          appBar: AppBar(
-              leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
-            onPressed: () => Navigator.pop(context),
-          ),
-                    title: Text(
-              'Discover Settings',
-              style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold), // Set the text color to primaryColor
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.9 - MediaQuery.of(context).padding.bottom,
+            child: Scaffold(
+              appBar: AppBar(
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                title: Text(
+                  'Discover Settings',
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+              ),
+              body: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.person, color: primaryColor),
+                    title: Text('Edit Profile', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.credit_card, color: primaryColor),
+                    title: Text('Add Credits', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AddCreditsScreen()),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.favorite, color: primaryColor),
+                    title: Text('Likes & Matches', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to Likes & Matches Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.people, color: primaryColor),
+                    title: Text('Preferences', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to Preferences Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.notifications, color: primaryColor),
+                    title: Text('Notification settings', style: TextStyle(color: textColor)),
+                    onTap: () {
+                     _showOptionBottomSheet(context, 'notifications'); // Navigate to Notifications Screen
+                    },
+                  ),
+                              ListTile(
+                  leading: Image.asset(
+                    'assets/incognito.png',
+                    color: primaryColor,
+                    width: 24,
+                    height: 24,
+                  ),
+                  title: Text('Incognito mode', style: TextStyle(color: textColor)),
+                  trailing: Switch(
+                    value: isIncognitoModeEnabled,
+                    onChanged: (bool value) async {
+                      try {
+                        // Fetch the current access token
+                        String? accessToken = await _getAccessToken();
+                        if (accessToken == null) {
+                          throw Exception('Access token not found');
+                        }
+                        // Update the incognito mode
+                        await updateIncognitoMode(value, accessToken, context);
+                        setState(() {
+                          isIncognitoModeEnabled = value;
+                        });
+                      } catch (error) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${error.toString()}')),
+                        );
+                      }
+                    },
+                    activeColor: primaryColor,
+                  ),
+                  onTap: () {
+                    // Navigate to Privacy Screen or handle tap action
+                  },
+                ),
+                  Divider(),
+                  ListTile(
+                    leading: Icon(Icons.person_search, color: primaryColor),
+                    title: Text('Looking For', style: TextStyle(color: textColor)),
+                    trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                    onTap: () {
+                      _showOptionBottomSheet(context, 'lookingFor');
+                      // Navigate to Looking For Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.open_with, color: primaryColor),
+                    title: Text('Open To', style: TextStyle(color: textColor)),
+                    trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                    onTap: () {
+                      _showOptionBottomSheet(context, 'openTo');
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.language, color: primaryColor),
+                    title: Text('Add Languages', style: TextStyle(color: textColor)),
+                    trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                    onTap: () {
+                      _showOptionBottomSheet(context, 'addLanguages');
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    leading: Icon(Icons.help_outline, color: primaryColor),
+                    title: Text('Help & Support', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to Help & Support Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.info_outline, color: primaryColor),
+                    title: Text('About', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to About Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.logout, color: Colors.redAccent),
+                    title: Text('Logout', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      _logout();
+                    },
+                  ),
+                ],
+              ),
             ),
-            backgroundColor: const Color.fromARGB(255, 255, 255, 255), // White background
-          ),
-          body: ListView(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            children: [
-              ListTile(
-                leading: Icon(Icons.person, color: primaryColor),
-                title: Text('Edit Profile', style: TextStyle(color: textColor)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditProfileScreen(),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.credit_card, color: primaryColor),
-                title: Text('Add Credits', style: TextStyle(color: textColor)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => AddCreditsScreen()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.favorite, color: primaryColor),
-                title: Text('Likes & Matches', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Likes & Matches Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.people, color: primaryColor),
-                title: Text('Preferences', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Preferences Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.notifications, color: primaryColor),
-                title: Text('Notifications', style: TextStyle(color: textColor)),
-                onTap: () {
-                 
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.privacy_tip, color: primaryColor),
-                title: Text('Privacy', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Privacy Screen
-                },
-              ),
-                   ListTile(
-                leading: Icon(Icons.privacy_tip, color: primaryColor),
-                title: Text('Privacy', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Privacy Screen
-                },
-              ),
-              Divider(),
-                 ListTile(
-                leading: Icon(Icons.person_search, color: primaryColor),
-                title: Text('Looking For', style: TextStyle(color: textColor)),
-                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                onTap: () {
-                
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.open_with, color: primaryColor),
-                title: Text('Open To', style: TextStyle(color: textColor)),
-                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                onTap: () {
-                  _showOptionBottomSheet(context, 'openTo');
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.language, color: primaryColor),
-                title: Text('Add Languages', style: TextStyle(color: textColor)),
-                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                onTap: () {
-                  _showOptionBottomSheet(context, 'addLanguages');
-                },
-              ),
-              Divider(),
-              ListTile(
-                leading: Icon(Icons.help_outline, color: primaryColor),
-                title: Text('Help & Support', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Help & Support Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.info_outline, color: primaryColor),
-                title: Text('About', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to About Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.logout, color: Colors.redAccent),
-                title: Text('Logout', style: TextStyle(color: textColor)),
-                onTap: () {
-                  _logout();
-                },
-              ),
-              // New ListTiles for Looking For, Open To, and Add Languages
-           
-            ],
-          ),
-        ),
+          );
+        },
       );
     },
   );
 }
-
 void _showOptionBottomSheet(BuildContext context, String option) {
   switch (option) {
     case 'lookingFor':
@@ -736,10 +884,153 @@ void _showOptionBottomSheet(BuildContext context, String option) {
     case 'addLanguages':
       _showAddLanguagesBottomSheet(context);
       break;
+    case 'notifications':
+      _showAddNotificationsBottomSheet(context);
+      break;
     default:
       // Handle unknown option
       break;
   }
+}
+bool  _enableNotifications=false;
+bool  _enableSound=false;
+bool  _enableVibration=false;
+bool  _enablePushNotifications=false;
+bool  _showNotificationsOnLockScreen=false;
+bool  _showRemindersOnLockScreen=false;
+bool  _allowNotificationsToPlaySounds=false;
+bool  _doNotDisturb=false;
+bool  _showPreviews=false;
+bool  _showNotificationBanners=false;
+bool  _showNotificationsInActionCenter=false;
+bool  _privateNotificationsInPublic=false;
+
+void _showAddNotificationsBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              title: Text('Enable Notifications'),
+              value: _enableNotifications,
+              onChanged: (bool value) {
+                setState(() {
+                  _enableNotifications = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Sound'),
+              value: _enableSound,
+              onChanged: (bool value) {
+                setState(() {
+                  _enableSound = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Vibration'),
+              value: _enableVibration,
+              onChanged: (bool value) {
+                setState(() {
+                  _enableVibration = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Push Notifications'),
+              value: _enablePushNotifications,
+              onChanged: (bool value) {
+                setState(() {
+                  _enablePushNotifications = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Notifications on Lock Screen'),
+              value: _showNotificationsOnLockScreen,
+              onChanged: (bool value) {
+                setState(() {
+                  _showNotificationsOnLockScreen = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Reminders on Lock Screen'),
+              value: _showRemindersOnLockScreen,
+              onChanged: (bool value) {
+                setState(() {
+                  _showRemindersOnLockScreen = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Allow Notifications to Play Sounds'),
+              value: _allowNotificationsToPlaySounds,
+              onChanged: (bool value) {
+                setState(() {
+                  _allowNotificationsToPlaySounds = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Do Not Disturb'),
+              value: _doNotDisturb,
+              onChanged: (bool value) {
+                setState(() {
+                  _doNotDisturb = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Previews'),
+              value: _showPreviews,
+              onChanged: (bool value) {
+                setState(() {
+                  _showPreviews = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Notification Banners'),
+              value: _showNotificationBanners,
+              onChanged: (bool value) {
+                setState(() {
+                  _showNotificationBanners = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Notifications in Action Center'),
+              value: _showNotificationsInActionCenter,
+              onChanged: (bool value) {
+                setState(() {
+                  _showNotificationsInActionCenter = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Private Notifications in Public'),
+              value: _privateNotificationsInPublic,
+              onChanged: (bool value) {
+                setState(() {
+                  _privateNotificationsInPublic = value;
+                });
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 void _showLookingForBottomSheet(BuildContext context) {
@@ -1714,25 +2005,33 @@ appBar: AppBar(
   ),
   actions: [
     IconButton(
-      icon: const Icon(Icons.filter_alt, color: Colors.pinkAccent, size: 20), // Add filter button
+      icon: const Icon(Icons.filter_alt, size: 20), // Add filter button
       onPressed: _showFilterScreen,
     ),
+   IconButton(
+  icon: Image.asset(
+    'assets/bell.png', // Replace with your notifications icon asset path
+    width: 20, // Adjust the size as needed
+    height: 20,
+  ),
+  onPressed: () {
+    // Navigate to the NotificationScreen
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => NotificationScreen()),
+    );
+  },
+),
     IconButton(
-      icon: Icon(Icons.notifications),
-      onPressed: () {
-        // Navigate to the NotificationScreen
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => NotificationScreen()),
-        );
-      },
-    ),
-    IconButton(
-      icon: Icon(Icons.settings),
-      onPressed: () {
-        _showSettingsBottomSheet(context);
-      },
-    ),
+  icon: Image.asset(
+    'assets/settings.png', // Replace with your settings icon asset path
+    width: 20, // Adjust the size as needed
+    height: 20,
+  ),
+  onPressed: () {
+    _showSettingsBottomSheet(context);
+  },
+)
   ],
 ),
     body: Column(
@@ -1979,7 +2278,7 @@ Future<http.Response> handleSwipe({
 Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPressed) {
   return Container(
     decoration: BoxDecoration(
-      color: Colors.white,
+      
       shape: BoxShape.circle,
       boxShadow: [
         BoxShadow(
@@ -2221,23 +2520,32 @@ Widget _buildSuggestedMatches() {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               _buildActionButtons(
-                                Icon(Icons.close, color: Colors.red),
-                                Colors.red,
-                                () async {
-                                  if (_currentUserId != 0) {
-                                    await handleSwipe(
-                                      swipeType: 'dislike',
-                                      swipedUserId: _currentUserId,
-                                      swipedOnId: userId,
-                                    );
-                                    setState(() {
-                                      _matches.removeAt(index);
-                                    });
-                                  }
-                                },
-                              ),
+                            Image.asset(
+                              'assets/dislike.png', // Replace with your close icon asset path
+                              width: 40, // Adjust the size as needed
+                              height: 40,
+                            ),
+                            Colors.red,
+                            () async {
+                              if (_currentUserId != 0) {
+                                await handleSwipe(
+                                  swipeType: 'dislike',
+                                  swipedUserId: _currentUserId,
+                                  swipedOnId: userId,
+                                );
+                                setState(() {
+                                  _matches.removeAt(index);
+                                });
+                              }
+                            },
+                          ),
                            _buildActionButtons(
-                              Image.asset('assets/star.png', width: 32, height: 32, color: Colors.blue),
+                           Image.asset(
+                    'assets/superlike.png',
+                    color: const Color.fromARGB(255, 233, 229, 22),
+                    width: 42,
+                    height: 42,
+                  ),
                               Colors.blue,
                               () async {
                                 if (_currentUserId != 0) {
@@ -2331,7 +2639,12 @@ Widget _buildSuggestedMatches() {
                               },
                             ),
                               _buildActionButtons(
-                                Icon(Icons.favorite, color: Colors.red),
+                             Image.asset(
+                    'assets/likes.png',
+                 
+                    width: 40,
+                    height: 40,
+                  ),
                                 Colors.red,
                                 () async {
                                   if (_currentUserId != 0) {

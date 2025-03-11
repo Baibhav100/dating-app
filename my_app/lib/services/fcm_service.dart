@@ -104,65 +104,74 @@ class FCMService {
   }
 
   static Future<void> _syncTokenWithBackend(String token) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final authToken = prefs.getString('access_token');
-      final userId = prefs.getString('user_id');
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final authToken = prefs.getString('access_token');
+    final userId = prefs.getString('user_id');
 
-      print('Syncing FCM token with backend...');
-      print('User ID: $userId');
-      print('FCM Token: $token');
-      print('Base URL: $baseUrl');
+    print('Syncing FCM token with backend...');
+    print('User ID: $userId');
+    print('FCM Token: $token');
+    print('Base URL: $baseUrl');
 
-      if (authToken == null || userId == null) {
-        throw Exception('No auth token or user ID found');
-      }
-
-      final Map<String, dynamic> requestBody = {
-        'device_token': token,
-      };
-
-      print('Request body: ${jsonEncode(requestBody)}');
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/fcm/register/'),
-        headers: {
-          'Authorization': 'Bearer $authToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(requestBody),
-      ).timeout(
-        Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Request timed out');
-        },
-      );
-
-      print('Response status code: ${response.statusCode}');
-      print('Response body: ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        print('Successfully synced FCM token with backend');
-        // Store sync status
-        await prefs.setBool('fcm_token_synced', true);
-      } else {
-        throw Exception(
-          'Failed to sync FCM token with backend. Status: ${response.statusCode}, Body: ${response.body}',
-        );
-      }
-    } catch (e, stackTrace) {
-      print('Error syncing FCM token with backend: $e');
-      print('Stack trace: $stackTrace');
-      
+    if (authToken == null) {
+      print('No auth token found. Skipping FCM token sync.');
       // Store sync status
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('fcm_token_synced', false);
-      
-      // Retry logic
-      await _scheduleRetry(token);
+      return;
     }
-  }
 
+    if (userId == null) {
+      print('No user ID found. Skipping FCM token sync.');
+      // Store sync status
+      await prefs.setBool('fcm_token_synced', false);
+      return;
+    }
+
+    final Map<String, dynamic> requestBody = {
+      'device_token': token,
+    };
+
+    print('Request body: ${jsonEncode(requestBody)}');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/fcm/register/'),
+      headers: {
+        'Authorization': 'Bearer $authToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(requestBody),
+    ).timeout(
+      Duration(seconds: 10),
+      onTimeout: () {
+        print('Request timed out. Skipping FCM token sync.');
+        // Store sync status
+        prefs.setBool('fcm_token_synced', false);
+        return http.Response('Request timed out', 408);
+      },
+    );
+
+    print('Response status code: ${response.statusCode}');
+    print('Response body: ${response.body}');
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      print('Successfully synced FCM token with backend');
+      // Store sync status
+      await prefs.setBool('fcm_token_synced', true);
+    } else {
+      print('Failed to sync FCM token with backend. Status: ${response.statusCode}, Body: ${response.body}');
+      // Store sync status
+      await prefs.setBool('fcm_token_synced', false);
+    }
+  } catch (e, stackTrace) {
+    print('Error syncing FCM token with backend: $e');
+    print('Stack trace: $stackTrace');
+    
+    // Store sync status
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('fcm_token_synced', false);
+  }
+}
   static Future<void> _scheduleRetry(String token) async {
     // Wait for 5 seconds before retrying
     await Future.delayed(Duration(seconds: 5));
