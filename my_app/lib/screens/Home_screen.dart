@@ -25,6 +25,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'notification.dart';
 import 'package:flutter_animated_dialog_updated/flutter_animated_dialog.dart';
+import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
@@ -46,6 +48,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+typedef CardSwiperOnSwipe = void Function(int previousIndex, int currentIndex, CardSwiperDirection direction);
+
 class _HomePageState extends State<HomePage>with
 SingleTickerProviderStateMixin {
    late TabController _tabController;
@@ -62,8 +66,7 @@ SingleTickerProviderStateMixin {
   SharedPreferences? prefs;
   String? accessToken;
   String? refreshToken;
-   bool _isLikeOverlayVisible = false;
-    bool _isDislikeOverlayVisible = false;
+bool _isSwipingRight = false;
 
   // Add variables to store user details
   String? _userName;
@@ -1963,9 +1966,9 @@ Widget _buildHomeScreen() {
   return Scaffold(
 appBar: AppBar(
   systemOverlayStyle: SystemUiOverlayStyle(
-    statusBarColor: Colors.white,
+    statusBarColor: const Color.fromARGB(255, 223, 203, 211),
     statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.white,
+    systemNavigationBarColor: const Color.fromARGB(255, 223, 203, 211),
     systemNavigationBarIconBrightness: Brightness.dark,
   ),
   backgroundColor: Colors.white, // Customize the background color
@@ -2278,7 +2281,7 @@ Future<http.Response> handleSwipe({
 Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPressed) {
   return Container(
     decoration: BoxDecoration(
-      
+      color: Colors.white, // White background color
       shape: BoxShape.circle,
       boxShadow: [
         BoxShadow(
@@ -2295,8 +2298,7 @@ Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPress
     ),
   );
 }
-// Call fetchCurrentUserId on the widget's initState
-  // Update the Suggested Matches section
+// Call fetchCurrentUserId on the widget's initStat
 Widget _buildSuggestedMatches() {
   // Check if data is still loading
   if (_isLoading) {
@@ -2338,358 +2340,299 @@ Widget _buildSuggestedMatches() {
         const SizedBox(height: 10),
         Expanded(
           child: SizedBox(
-            height: 500, // Increased height from 400 to 500
+            // Use MediaQuery to get the device's screen width
+            width: MediaQuery.of(context).size.width,
+            height: 600, // Increased height to 600
             child: Stack(
-              clipBehavior: Clip.none,
-              children: List.generate(_matches.length, (index) {
-                final match = _matches[index];
-                final profile = match['profile'];
-                final userId = match['user_id'];
+              children: [
+                CardSwiper(
+                  cards: List.generate(_matches.length, (index) {
+                    final match = _matches[index];
+                    final profile = match['profile'];
+                    final userId = match['user_id'];
 
-                return Dismissible(
-                  key: Key(userId.toString()),
-                  direction: DismissDirection.horizontal,
-                  onUpdate: (details) {
-                    if (details.direction == DismissDirection.startToEnd) {
-                      setState(() {
-                        _isLikeOverlayVisible = true;
-                      });
-                    } else {
-                      setState(() {
-                        _isLikeOverlayVisible = false;
-                      });
-                    }
-                  },
-                  onDismissed: (direction) async {
-                    if (_currentUserId != 0) {
-                      final isLiked = direction == DismissDirection.startToEnd;
-                      final swipeType = isLiked ? 'like' : 'dislike';
-
-                      try {
-                        await handleSwipe(
-                          swipeType: swipeType,
-                          swipedUserId: _currentUserId,
-                          swipedOnId: userId,
-                        );
-
-                        setState(() {
-                          _matches.removeAt(index);
-                        });
-
-                        print('$swipeType: ${profile['name']}');
-                      } catch (error) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: ${error.toString()}')),
-                        );
-                      }
-                    } else {
-                      print('Current user ID is not available');
-                    }
-                  },
-                  background: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 20),
-                        child: Icon(Icons.favorite, color: Colors.green, size: 40),
-                      ),
-                    ),
-                  ),
-                  secondaryBackground: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: EdgeInsets.only(right: 20),
-                        child: Icon(Icons.close, color: Colors.red, size: 40),
-                      ),
-                    ),
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    alignment: Alignment.topCenter,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(15),
-                        child: Image.network(
-                          '$baseurl${profile['profile_picture']}',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Image.asset(
-                            'assets/default_profile_picture.png',
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        alignment: Alignment.topCenter,
+                        children: [
+                          Image.network(
+                            '$baseurl${profile['profile_picture']}',
                             fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Image.asset(
+                              'assets/default_profile_picture.png',
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: GestureDetector(
-                          onTap: () {
-                            // Handle profile tap
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
+                          Container(
                             decoration: BoxDecoration(
-                              color: Colors.white24,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 70,
-                        left: 16,
-                        right: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile['name'] ?? 'No Name',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                                shadows: [
-                                  Shadow(
-                                    blurRadius: 10.0,
-                                    color: Colors.black45,
-                                    offset: Offset(1.0, 1.0),
-                                  ),
+                              borderRadius: BorderRadius.circular(15),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.7),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Container(
-                              width: double.infinity,
-                              height: 2,
-                              color: Colors.white30,
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                            ),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_outlined,
-                                  color: Colors.white70,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  profile['location'] ?? 'Location not specified',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white70,
-                                    fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    Positioned(
-                          bottom: 0,
-                          left: 16,
-                          right: 16,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildActionButtons(
-                            Image.asset(
-                              'assets/dislike.png', // Replace with your close icon asset path
-                              width: 40, // Adjust the size as needed
-                              height: 40,
-                            ),
-                            Colors.red,
-                            () async {
-                              if (_currentUserId != 0) {
-                                await handleSwipe(
-                                  swipeType: 'dislike',
-                                  swipedUserId: _currentUserId,
-                                  swipedOnId: userId,
-                                );
-                                setState(() {
-                                  _matches.removeAt(index);
-                                });
-                              }
-                            },
                           ),
-                           _buildActionButtons(
-                           Image.asset(
-                    'assets/superlike.png',
-                    color: const Color.fromARGB(255, 233, 229, 22),
-                    width: 42,
-                    height: 42,
-                  ),
-                              Colors.blue,
-                              () async {
-                                if (_currentUserId != 0) {
-                                  // Perform the superlike action
-                                  final response = await handleSwipe(
-                                    swipeType: 'superlike',
-                                    swipedUserId: _currentUserId,
-                                    swipedOnId: userId,
-                                  );
-
-                                  // Check if the response status is 200
-                                  if (response != null && response.statusCode == 200) {
-                                    // Show a popup indicating superlike
-                                    await showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text('Superlike!'),
-                                          content: Text('You have superliked ${profile['name']}'),
-                                          actions: <Widget>[
-                                            TextButton(
-                                              child: Text('OK'),
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-
-                                    // Remove the card from the list
-                                    setState(() {
-                                      _matches.removeAt(index);
-                                    });
-                                  } else if (response != null && response.statusCode == 403) {
-                                    // Show a popup indicating the user is not subscribed to any plans
-                            await showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  backgroundColor: Colors.black, // Dark theme background
-                                  title: Text(
-                                    'Subscription Required',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Image.asset(
-                                      //   'assets/subscription.png', // Replace with your image path
-                                      //   width: 100,
-                                      //   height: 100,
-                                      // ),
-                                      SizedBox(height: 16),
-                                      Text(
-                                        'You are not subscribed to any plans. Please get one.',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 16,
-                                        ),
+                          Positioned(
+                            top: 16,
+                            left: 16,
+                            child: GestureDetector(
+                              onTap: () {
+                                // Handle profile tap
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white24,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 70,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  profile['name'] ?? 'No Name',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 10.0,
+                                        color: Colors.black45,
+                                        offset: Offset(1.0, 1.0),
                                       ),
                                     ],
                                   ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      child: Text(
-                                        'OK',
-                                        style: TextStyle(
-                                          color: Colors.blue,
-                                          fontSize: 16,
-                                        ),
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  height: 2,
+                                  color: Colors.white30,
+                                  margin: const EdgeInsets.symmetric(vertical: 4),
+                                ),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      color: Colors.white70,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      profile['location'] ?? 'Location not specified',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.white70,
+                                        fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
                                       ),
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
                                     ),
                                   ],
-                                );
-                              },
-                            );
-                                  } else {
-                                    // Handle other status codes if necessary
-                                    print('Swipe action failed. Status: ${response?.statusCode}');
-                                  }
-                                }
-                              },
+                                ),
+                              ],
                             ),
-                              _buildActionButtons(
-                             Image.asset(
-                    'assets/likes.png',
-                 
-                    width: 40,
-                    height: 40,
-                  ),
-                                Colors.red,
-                                () async {
-                                  if (_currentUserId != 0) {
-                                    await handleSwipe(
-                                      swipeType: 'like',
-                                      swipedUserId: _currentUserId,
-                                      swipedOnId: userId,
-                                    );
-                                    setState(() {
-                                      _matches.removeAt(index);
-                                    });
-                                  }
-                                },
-                              ),
-                            ],
                           ),
+                        ],
+                      ),
+                    );
+                  }),
+                  onSwipe: (int index, CardSwiperDirection direction) { 
+                    print('Swiped: index=$index, direction=$direction');
+
+                    if (direction == CardSwiperDirection.right) {
+                      Fluttertoast.showToast(msg: '🔥', backgroundColor: Colors.white, fontSize: 28);
+                      handleSwipe(
+                        swipeType: 'like',
+                        swipedUserId: _currentUserId,
+                        swipedOnId: _matches[index]['user_id'],
+                      );
+                    } else if (direction == CardSwiperDirection.left) {
+                      Fluttertoast.showToast(msg: '😖', backgroundColor: Colors.white, fontSize: 28);
+                      handleSwipe(
+                        swipeType: 'dislike',
+                        swipedUserId: _currentUserId,
+                        swipedOnId: _matches[index]['user_id'],
+                      );
+                    }
+                  },
+                ),
+                // Buttons overlay
+                Positioned(
+                  bottom: -6, // Adjust the position to partially overlap the cards
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildActionButtons(
+                        Image.asset(
+                          'assets/dislike.png', // Replace with your close icon asset path
+                          width: 40, // Adjust the size as needed
+                          height: 40,
                         ),
-                                              // New Like Image Overlay
-                      Positioned(
-                        top: 0,
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return AnimatedOpacity(
-                              opacity: _isLikeOverlayVisible ? 1.0 : 0.0,
-                              duration: Duration(milliseconds: 300),
-                              child: Center(
-                                child: _isLikeOverlayVisible
-                                    ? Image.asset(
-                                        'assets/like.png',
-                                        width: constraints.maxWidth * 0.6,
-                                        height: constraints.maxHeight * 0.6,
-                                      )
-                                    : Container(),
-                              ),
+                        Colors.red,
+                        () async {
+                          if (_currentUserId != 0) {
+                            await handleSwipe(
+                              swipeType: 'dislike',
+                              swipedUserId: _currentUserId,
+                              swipedOnId: _matches.last['user_id'],
                             );
-                          },
+                            setState(() {
+                              _matches.removeLast();
+                            });
+                          }
+                        },
+                      ),
+                      _buildActionButtons(
+                        Image.asset(
+                          'assets/superlike.png',
+                          color: const Color.fromARGB(255, 191, 110, 216),
+                          width: 42,
+                          height: 42,
                         ),
+                        Colors.blue,
+                        () async {
+                          if (_currentUserId != 0) {
+                            // Perform the superlike action
+                            final response = await handleSwipe(
+                              swipeType: 'superlike',
+                              swipedUserId: _currentUserId,
+                              swipedOnId: _matches.last['user_id'],
+                            );
+
+                            // Check if the response status is 200
+                            if (response != null && response.statusCode == 200) {
+                              // Show a popup indicating superlike
+                              await showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: Text('Superlike!'),
+                                    content: Text('You have superliked ${_matches.last['profile']['name']}'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        child: Text('OK'),
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+
+                              // Remove the card from the list
+                              setState(() {
+                                _matches.removeLast();
+                              });
+                            } else if (response != null && response.statusCode == 403) {
+                              // Show a popup indicating the user is not subscribed to any plans
+                              await showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    backgroundColor: Colors.black, // Dark theme background
+                                    title: Text(
+                                      'Subscription Required',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(height: 16),
+                                        Text(
+                                          'You are not subscribed to any plans. Please get one.',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ],
+                                    ),  
+                                    actions: <Widget>[
+                                      TextButton(
+                                        child: Text(
+                                          'OK',
+                                          style: TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            } else {
+                              // Handle other status codes if necessary
+                              print('Swipe action failed. Status: ${response?.statusCode}');
+                            }
+                          }
+                        },
+                      ),
+                      _buildActionButtons(
+                        Image.asset(
+                          'assets/likes.png',
+                          width: 40,
+                          height: 40,
+                        ),
+                        Colors.red,
+                        () async {
+                          if (_currentUserId != 0) {
+                            await handleSwipe(
+                              swipeType: 'like',
+                              swipedUserId: _currentUserId,
+                              swipedOnId: _matches.last['user_id'],
+                            );
+                            setState(() {
+                              _matches.removeLast();
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),
-                );
-              }),
+                ),
+                // Swipe indicator image
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Visibility(
+                    visible: _isSwipingRight,
+                    child: Image.asset(
+                      'assets/like.png', // Replace with your swipe indicator image
+                      width: 100, // Adjust the size as needed
+                      height: 100,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2697,8 +2640,6 @@ Widget _buildSuggestedMatches() {
     ),
   );
 }
-
-
 // Placeholder for Search tab
 Widget _buildSearchScreen() {
   return const Center(

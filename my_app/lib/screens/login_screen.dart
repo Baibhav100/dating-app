@@ -9,23 +9,507 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController inputController = TextEditingController();
   bool isEmailLogin = true; // To toggle between email and phone login
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 223, 203, 211) // Use a single color for the background
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                    // Attractive Heading
+                    Text(
+                    'Login',
+                    style: TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Color.fromARGB(255, 255, 255, 255),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 10),
+
+                  // Short paragraph
+                  // Text(
+                  //   "Your journey towards seamless authentication starts here. "
+                  //   "Log in using your email or phone number to get started.",
+                  //   style: TextStyle(
+                  //     fontSize: 16,
+                  //     color: Color.fromARGB(255, 241, 240, 240),
+                  //   ),
+                  //   textAlign: TextAlign.center,
+                  // ),
+                  SizedBox(height: 20),
+
+                  // Toggle buttons for email and phone login
+                    Column(
+                    children: [
+                      SizedBox(
+                      width: double.infinity, // Make the button width to fill the device width
+                      child: ElevatedButton(
+                        onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => EmailLoginScreen()),
+                        );
+                        },
+                        style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 216, 57, 96),
+                       foregroundColor: const Color.fromARGB(255, 255, 255, 255), // Text color
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        ),
+                        child: Text(
+                        'Login with Email',
+                        style: TextStyle(fontSize: 18),
+                        ),
+                      ),
+                      ),
+                      SizedBox(height: 20),
+                      SizedBox(
+                      width: double.infinity, // Make the button width to fill the device width
+                      child: ElevatedButton(
+                        onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => PhoneLoginScreen()),
+                        );
+                        },
+                        style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color.fromARGB(255, 216, 57, 96),
+                       foregroundColor: const Color.fromARGB(255, 255, 255, 255), // Text color
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        ),
+                        child: Text(
+                        'Login with Phone',
+                        style: TextStyle(fontSize: 18),
+                        ),
+                      ),
+                      ),
+                    ],
+                    ),
+                  SizedBox(height: 30),
+
+                  // Divider
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Color.fromARGB(255, 255, 255, 255))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text("OR", style: TextStyle(color: Color.fromARGB(255, 255, 244, 248))),
+                      ),
+                      Expanded(child: Divider(color: Color.fromARGB(255, 255, 248, 250))),
+                    ],
+                  ),
+                    SizedBox(height: 30),
+
+                    Column(
+                    children: [
+                      // Google Login Button
+                      ElevatedButton.icon(
+                      onPressed: () async {
+                        try {
+                        String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+                        
+                        // Trigger Google Sign-In
+                        final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+                        final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+                        
+                        if (googleUser == null) {
+                          print("Google Sign-In canceled by the user.");
+                          return;
+                        }
+                        print("Google Sign-In successful. Account: ${googleUser}, Email: ${googleUser.email}");
+
+                        // Obtain authentication details from Google
+                        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+                        // Extract the Google ID Token and Access Token
+                        final String? googleIdToken = googleAuth.idToken;
+                        final String? googleAccessToken = googleAuth.accessToken;
+                        print("Server Auth Code: ${googleUser.serverAuthCode}");
+                        if (googleIdToken == null || googleAccessToken == null) {
+                          print("Failed to retrieve Google ID Token or Access Token.");
+                          return;
+                        }
+
+                        print("Google ID Token: $googleIdToken");
+
+                        // Send Google ID Token to the backend
+                        final response = await http.post(
+                          Uri.parse('$baseUrl/auth/social-login/'),
+                          headers: {"Content-Type": "application/json"},
+                          body: json.encode({
+                          "provider": "google",
+                          "code": googleIdToken, // Use id_token instead of code
+                          }),
+                        );
+
+                        // Check the response from the backend
+                        if (response.statusCode == 200) {
+
+                          final data = json.decode(response.body);
+
+                          if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
+                          final accessToken = data['access_token'];
+                          final refreshToken = data['refresh_token'];
+
+                          if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString('access_token', accessToken);
+                            await prefs.setString('refresh_token', refreshToken);
+
+                            // Fetch user details to check if the profile exists
+                            final userDetailsResponse = await http.get(
+                            Uri.parse('$baseUrl/auth/my-profile/'),
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer $accessToken',
+                            },
+                            );
+
+                            print("User details response status: ${userDetailsResponse.statusCode}");
+
+                            if (userDetailsResponse.statusCode == 200) {
+                            // Profile exists
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Login Successful!')),
+                            );
+                            
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                              builder: (context) => HomePage(
+                                accessToken: accessToken,
+                                refreshToken: refreshToken,
+                              ),
+                              ),
+                            );
+                            } else if (userDetailsResponse.statusCode == 404) {
+                            // Profile doesn't exist
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => CreateProfileScreen(value: googleUser.email)),
+                            );
+                            } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
+                            );
+                            }
+                          }
+                          } else {
+                          print("Response does not contain 'access' or 'refresh' token");
+                          }
+                        } else {
+                          print("Login failed: ${response.body}");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Login failed: ${response.body}')),
+                          );
+                        }
+                        } catch (e) {
+                        print("Error during Google Sign-In: $e");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                        }
+                      },
+                        style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size(double.infinity, 50), // Set the width to fill the device width
+                        ),
+                      icon: FaIcon(
+                        FontAwesomeIcons.google,
+                        color: Colors.red,
+                      ),
+                      label: Text(
+                        'Login with Google',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                      ),
+                      SizedBox(height: 20),
+                      // Facebook Login Button
+                      ElevatedButton.icon(
+                      onPressed: () async {
+                        try {
+                        String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+
+                        // Trigger Facebook Sign-In
+                        final LoginResult result = await FacebookAuth.instance.login(
+                          permissions: ['public_profile', 'email'],
+                        ); // Request email and public profile by default
+
+                        if (result.status == LoginStatus.success) {
+                          // User successfully logged in
+                          final AccessToken accessToken = result.accessToken!;
+                          print("Access Token: ${accessToken.token}");
+
+                          // Send Facebook Access Token to the backend
+                          final response = await http.post(
+                          Uri.parse('$baseUrl/auth/social-login/'),
+                          headers: {"Content-Type": "application/json"},
+                          body: json.encode({
+                            "provider": "facebook",
+                            "code": accessToken.token, // Use the Facebook access token
+                          }),
+                          );
+
+                          // Check the response from the backend
+                          if (response.statusCode == 200) {
+                          final data = json.decode(response.body);
+
+                          if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
+                            final accessToken = data['access_token'];
+                            final refreshToken = data['refresh_token'];
+
+                            if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString('access_token', accessToken);
+                            await prefs.setString('refresh_token', refreshToken);
+
+                            // Fetch user details to check if the profile exists
+                            final userDetailsResponse = await http.get(
+                              Uri.parse('$baseUrl/auth/my-profile/'),
+                              headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': 'Bearer $accessToken',
+                              },
+                            );
+
+                            print("User details response status: ${userDetailsResponse.statusCode}");
+
+                            if (userDetailsResponse.statusCode == 200) {
+                              // Profile exists
+                              ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Login Successful!')),
+                              );
+                              
+                              Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => HomePage(
+                                accessToken: accessToken,
+                                refreshToken: refreshToken,
+                                ),
+                              ),
+                              );
+                            } else if (userDetailsResponse.statusCode == 404) {
+                              // Profile doesn't exist
+                              Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (context) => CreateProfileScreen(value: 'Facebook User')),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
+                              );
+                            }
+                            }
+                          } else {
+                            print("Response does not contain 'access' or 'refresh' token");
+                          }
+                          } else {
+                          print("Login failed: ${response.body}");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Login failed: ${response.body}')),
+                          );
+                          }
+                        } else {
+                          // Handle login failure
+                          print("Login Status: ${result.status}");
+                          print("Message: ${result.message}");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Login failed: ${result.message}')),
+                          );
+                        }
+                        } catch (e) {
+                        print("Error during Facebook login: $e");
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                        }
+                        print("Facebook Login Clicked");
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                        shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size(double.infinity, 50),
+                      ),
+                      icon: FaIcon(
+                        FontAwesomeIcons.facebook,
+                        color: const Color.fromARGB(255, 72, 70, 182),
+                      ),
+                      label: Text(
+                        'Login with Facebook',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                      ),
+                    ],
+                    )
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EmailLoginScreen extends StatefulWidget {
+  @override
+  _EmailLoginScreenState createState() => _EmailLoginScreenState();
+}
+
+class _EmailLoginScreenState extends State<EmailLoginScreen> {
+  final TextEditingController emailController = TextEditingController();
+
+  bool isLoading = false; // Add a loading state
+
+  Future<void> sendOtp(String endpoint, String value, BuildContext context) async {
+    setState(() {
+      isLoading = true; // Show loading indicator
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': value}),
+      );
+
+      if (response.statusCode == 200) {
+        Fluttertoast.showToast(
+          msg: "OTP sent successfully!",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.TOP,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(value: value),
+          ),
+        );
+      } else {
+        Fluttertoast.showToast(
+          msg: "Failed to send OTP: ${response.body}",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.TOP,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+      }
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: "Error: $e",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.TOP,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+      );
+    } finally {
+      setState(() {
+        isLoading = false; // Hide loading indicator
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Email Login',
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+              ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                labelText: "Email Address",
+                prefixIcon: Icon(Icons.email, color: primaryColor),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: primaryColor),
+                ),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+                String endpoint = '$baseUrl/auth/send-email-otp/';
+                sendOtp(endpoint, emailController.text, context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 216, 57, 96),
+                foregroundColor: const Color.fromARGB(255, 255, 255, 255), // Text color
+                padding: EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                "Send OTP",
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PhoneLoginScreen extends StatelessWidget {
+  final TextEditingController phoneController = TextEditingController();
 
   Future<void> sendOtp(String endpoint, String value, BuildContext context) async {
     try {
       final response = await http.post(
         Uri.parse(endpoint),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': value}), // change 'email' here if the API expects it
+        body: json.encode({'phone': value}),
       );
 
       if (response.statusCode == 200) {
@@ -48,408 +532,53 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
- Widget build(BuildContext context) {
-  return Scaffold(
-    body: Container(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Attractive Heading
-                Text(
-                  'Login',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 204, 22, 92),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 10),
-                
-                // Short paragraph
-                Text(
-                  "Your journey towards seamless authentication starts here. "
-                  "Log in using your email or phone number to get started.",
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Color.fromARGB(255, 44, 44, 44),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 20),
-
-                // Small image at the top (Replace with your asset path)
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(60), // Ensure it's half of width/height
-                  child: Image.asset(
-                    'assets/image4.png', // Replace with your image path
-                    height: 120, // Adjust size as needed
-                    width: 120,
-                    fit: BoxFit.cover, // Ensures the image fills the circular shape
-                  ),
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Phone Login'),
+        backgroundColor: Colors.redAccent,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: "Phone Number",
+                prefixIcon: Icon(Icons.phone, color: Colors.redAccent),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-                              SizedBox(height: 40),
-
-                // Toggle buttons for email and phone login
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          isEmailLogin = true;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isEmailLogin ? Colors.pinkAccent : Colors.grey,
-                        foregroundColor: Colors.white, // Text color
-                      ),
-                      child: Text('Email'),
-                    ),
-                    SizedBox(width: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          isEmailLogin = false;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: !isEmailLogin ? Colors.pinkAccent : Colors.grey,
-                        foregroundColor: const Color.fromARGB(255, 148, 99, 99), // Text color
-                      ),
-                      child: Text('Phone'),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-
-                // Input Field (Email or Phone)
-                TextField(
-                  controller: inputController,
-                  keyboardType:
-                      isEmailLogin ? TextInputType.emailAddress : TextInputType.phone,
-                  style: TextStyle(color: Color.fromARGB(255, 44, 44, 44)), // Text color
-                  decoration: InputDecoration(
-                    labelText: isEmailLogin ? "Email Address" : "Phone Number",
-                    labelStyle: TextStyle(color: Color.fromARGB(255, 204, 22, 92)),
-                    prefixIcon: Icon(
-                      isEmailLogin ? Icons.email : Icons.phone,
-                      color: Color.fromARGB(255, 204, 22, 92),
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Color.fromARGB(255, 212, 35, 35)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Color.fromARGB(255, 204, 22, 92)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Color.fromARGB(255, 204, 22, 92)),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-
-                // Login Button 
-                ElevatedButton(
-                  onPressed: () {
-                    print(dotenv.env['BASE_URL']);
-                    String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
-                    String endpoint = isEmailLogin
-                        ? '$baseUrl/auth/send-email-otp/'
-                        : '$baseUrl/auth/send-otp/';
-                    sendOtp(endpoint, inputController.text, context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color.fromARGB(255, 253, 183, 212),
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    isEmailLogin ? "Login with Email" : "Login with Phone",
-                    style: TextStyle(fontSize: 18, color: Color.fromARGB(255, 204, 22, 92)),
-                  ),
-                ),
-                SizedBox(height: 30),
-
-                // Divider
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Color.fromARGB(255, 204, 22, 92))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text("OR", style: TextStyle(color: Color.fromARGB(255, 204, 22, 92))),
-                    ),
-                    Expanded(child: Divider(color: Color.fromARGB(255, 204, 22, 92))),
-                  ],
-                ),
-                SizedBox(height: 30),
-
-                // Social Login Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                   // Google Login Button
-                    TextButton.icon(
-                      onPressed: () async {
-                        try {
-                          String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
-                          
-                          // Trigger Google Sign-In
-                          final GoogleSignIn googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
-                          final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-                          
-
-                          if (googleUser == null) {
-                            print("Google Sign-In canceled by the user.");
-                            return;
-                          }
-                          print("Google Sign-In successful. Account: ${googleUser}, Email: ${googleUser.email}");
-
-                          // Obtain authentication details from Google
-                          final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-                          // Extract the Google ID Token and Access Token
-                          final String? googleIdToken = googleAuth.idToken;
-                          final String? googleAccessToken = googleAuth.accessToken;
-                          print("Server Auth Code: ${googleUser.serverAuthCode}");
-                          if (googleIdToken == null || googleAccessToken == null) {
-                            print("Failed to retrieve Google ID Token or Access Token.");
-                            return;
-                          }
-
-                          print("Google ID Token: $googleIdToken");
-
-                          // Send Google ID Token to the backend
-                          final response = await http.post(
-                            Uri.parse('$baseUrl/auth/social-login/'),
-                            headers: {"Content-Type": "application/json"},
-                            body: json.encode({
-                              "provider": "google",
-                              "code": googleIdToken, // Use id_token instead of code
-                            }),
-                          );
-
-                          // Check the response from the backend
-                          if (response.statusCode == 200) {
-
-                            final data = json.decode(response.body);
-
-                            if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
-                              final accessToken = data['access_token'];
-                              final refreshToken = data['refresh_token'];
-
-                              if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
-                                final prefs = await SharedPreferences.getInstance();
-                                await prefs.setString('access_token', accessToken);
-                                await prefs.setString('refresh_token', refreshToken);
-
-                                // Fetch user details to check if the profile exists
-                                final userDetailsResponse = await http.get(
-                                  Uri.parse('$baseUrl/auth/my-profile/'),
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': 'Bearer $accessToken',
-                                  },
-                                );
-
-                                print("User details response status: ${userDetailsResponse.statusCode}");
-
-                                if (userDetailsResponse.statusCode == 200) {
-                                  // Profile exists
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Login Successful!')),
-                                  );
-                                  
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => HomePage(
-                                        accessToken: accessToken,
-                                        refreshToken: refreshToken,
-                                      ),
-                                    ),
-                                  );
-                                } else if (userDetailsResponse.statusCode == 404) {
-                                  // Profile doesn't exist
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => CreateProfileScreen(value: googleUser.email)),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
-                                  );
-                                }
-                              }
-                            } else {
-                              print("Response does not contain 'access' or 'refresh' token");
-                            }
-                          } else {
-                            print("Login failed: ${response.body}");
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Login failed: ${response.body}')),
-                            );
-                          }
-                        } catch (e) {
-                          print("Error during Google Sign-In: $e");
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                      },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: FaIcon(
-                        FontAwesomeIcons.google,
-                        color: Color.fromARGB(255, 204, 22, 92),
-                        size: 30,
-                      ),
-                      label: SizedBox.shrink(),
-                    ),
-                    SizedBox(width: 20),
-                    // Facebook Login Button
-                   TextButton.icon(
-                      onPressed: () async {
-                        try {
-                          String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
-
-                          // Trigger Facebook Sign-In
-                          final LoginResult result = await FacebookAuth.instance.login(
-                            permissions: ['public_profile', 'email'],
-                          ); // Request email and public profile by default
-
-                          if (result.status == LoginStatus.success) {
-                            // User successfully logged in
-                            final AccessToken accessToken = result.accessToken!;
-                            print("Access Token: ${accessToken.token}");
-
-                            // Send Facebook Access Token to the backend
-                            final response = await http.post(
-                              Uri.parse('$baseUrl/auth/social-login/'),
-                              headers: {"Content-Type": "application/json"},
-                              body: json.encode({
-                                "provider": "facebook",
-                                "code": accessToken.token, // Use the Facebook access token
-                              }),
-                            );
-
-                            // Check the response from the backend
-                            if (response.statusCode == 200) {
-                              final data = json.decode(response.body);
-
-                              if (data.containsKey('access_token') && data.containsKey('refresh_token')) {
-                                final accessToken = data['access_token'];
-                                final refreshToken = data['refresh_token'];
-
-                                if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
-                                  final prefs = await SharedPreferences.getInstance();
-                                  await prefs.setString('access_token', accessToken);
-                                  await prefs.setString('refresh_token', refreshToken);
-
-                                  // Fetch user details to check if the profile exists
-                                  final userDetailsResponse = await http.get(
-                                    Uri.parse('$baseUrl/auth/my-profile/'),
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      'Authorization': 'Bearer $accessToken',
-                                    },
-                                  );
-
-                                  print("User details response status: ${userDetailsResponse.statusCode}");
-
-                                  if (userDetailsResponse.statusCode == 200) {
-                                    // Profile exists
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Login Successful!')),
-                                    );
-                                    
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => HomePage(
-                                          accessToken: accessToken,
-                                          refreshToken: refreshToken,
-                                        ),
-                                      ),
-                                    );
-                                  } else if (userDetailsResponse.statusCode == 404) {
-                                    // Profile doesn't exist
-                                    Navigator.pushReplacement(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => CreateProfileScreen(value: 'Facebook User')),
-                                    );
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error fetching user profile: ${userDetailsResponse.body}')),
-                                    );
-                                  }
-                                }
-                              } else {
-                                print("Response does not contain 'access' or 'refresh' token");
-                              }
-                            } else {
-                              print("Login failed: ${response.body}");
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Login failed: ${response.body}')),
-                              );
-                            }
-                          } else {
-                            // Handle login failure
-                            print("Login Status: ${result.status}");
-                            print("Message: ${result.message}");
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Login failed: ${result.message}')),
-                            );
-                          }
-                        } catch (e) {
-                          print("Error during Facebook login: $e");
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e')),
-                          );
-                        }
-                        print("Facebook Login Clicked");
-                      },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      icon: FaIcon(
-                        FontAwesomeIcons.facebook,
-                        color: Color.fromARGB(255, 204, 22, 92),
-                        size: 30,
-                      ),
-                      label: SizedBox.shrink(),
-                    ),
-
-                  ],
-                ),
-              ],
             ),
-          ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+                String endpoint = '$baseUrl/auth/send-otp/';
+                sendOtp(endpoint, phoneController.text, context);
+              },
+              style: ElevatedButton.styleFrom(
+               backgroundColor: const Color.fromARGB(255, 216, 57, 96),
+              foregroundColor: const Color.fromARGB(255, 255, 255, 255), // Text color
+                padding: EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                "Send OTP",
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 }
 
 class OtpVerificationScreen extends StatelessWidget {
@@ -493,7 +622,7 @@ class OtpVerificationScreen extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Login Successful!')),
               );
-              
+
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
@@ -532,9 +661,16 @@ class OtpVerificationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Verify OTP'),
-        backgroundColor: Colors.redAccent,
-      ),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'OTP Verification',
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                ),
+             
+              ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -547,29 +683,47 @@ class OtpVerificationScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 40),
-            TextField(
-              controller: otpController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: "OTP",
-                prefixIcon: Icon(Icons.lock, color: Colors.redAccent),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
+          PinCodeTextField(
+  appContext: context,
+  length: 6,
+  controller: otpController,
+  keyboardType: TextInputType.number,
+  animationType: AnimationType.fade,
+  pinTheme: PinTheme(
+    shape: PinCodeFieldShape.box,
+    borderRadius: BorderRadius.zero,
+    fieldHeight: 50,
+    fieldWidth: 40,
+    activeFillColor: Color.fromARGB(255, 223, 203, 211), // Active background color
+    selectedFillColor: Color.fromARGB(255, 223, 203, 211), // Selected background color
+    inactiveFillColor: Color.fromARGB(255, 223, 203, 211), // Inactive background color
+    activeColor: Colors.transparent, // Remove active border color
+    selectedColor: Colors.transparent, // Remove selected border color
+    inactiveColor: Colors.transparent, // Remove inactive border color
+   
+  ),
+  animationDuration: Duration(milliseconds: 300),
+  backgroundColor: Colors.transparent,
+  enableActiveFill: true,
+  onCompleted: (v) {
+    print("Completed");
+  },
+  onChanged: (value) {
+    print(value);
+  },
+),           SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 verifyOtp(context);
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                padding: EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+                style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color.fromARGB(255, 216, 57, 96),
+                       foregroundColor: const Color.fromARGB(255, 255, 255, 255), // Text color
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        ),
               child: Text(
                 "Verify OTP",
                 style: TextStyle(fontSize: 18, color: Colors.white),
@@ -581,4 +735,3 @@ class OtpVerificationScreen extends StatelessWidget {
     );
   }
 }
-
