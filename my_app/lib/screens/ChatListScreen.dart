@@ -254,18 +254,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-    "Messages",
-    style: TextStyle(color: Colors.red), // Set the text color to white
-  ),
-  backgroundColor: Colors.transparent, // Remove the background color
-  elevation: 2,
-  leading: Icon(
-    Icons.message, // Add a message icon
-    color: Colors.red, // Set the icon color to white
-  ),
+ appBar: AppBar(
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+        onPressed: () => Navigator.pop(context),
       ),
+      title: Text(
+        'Messages',
+        style: TextStyle(color:Colors.pinkAccent, fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
           : chatSessions.isEmpty

@@ -140,269 +140,374 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? Center(child: CircularProgressIndicator())
           : userProfile != null
               ? CustomScrollView(
-                  slivers: [
+                    slivers: [
                     // Profile Header with Cover Image and Profile Picture
                     SliverAppBar(
-                      expandedHeight: 400,
+                      expandedHeight: 250, // Reduced height
                       floating: false,
                       pinned: true,
                       backgroundColor: Colors.transparent,
                       flexibleSpace: FlexibleSpaceBar(
-                        background: Stack(
-                          fit: StackFit.expand,
+                      background: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                        // Cover Image with Hero animation
+                        if (userProfile!['cover_picture'] != null)
+                          Hero(
+                          tag: 'cover_${userProfile!['id']}',
+                          child: Image.network(
+                            '$baseurl${userProfile!['cover_picture']}',
+                            fit: BoxFit.cover,
+                          ),
+                          ),
+                        // Multiple gradient overlays for better depth
+                        Container(
+                          decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                            Colors.black.withOpacity(0.0),
+                            Colors.black.withOpacity(0.3),
+                            Colors.black.withOpacity(0.7),
+                            ],
+                            stops: [0.0, 0.5, 1.0],
+                          ),
+                          ),
+                        ),
+                        // Side gradients for depth
+                        Container(
+                          decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                            Colors.black.withOpacity(0.3),
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.3),
+                            ],
+                            stops: [0.0, 0.2, 0.8, 1.0],
+                          ),
+                          ),
+                        ),
+                        // Profile Picture and Name
+                        Positioned(
+                          bottom: 20,
+                          left: 20,
+                          right: 20,
+                          child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Cover Image with Hero animation
-                            if (userProfile!['cover_picture'] != null)
+                            Row(
+                            children: [
+                              // Profile picture with hero animation and progress indicator
                               Hero(
-                                tag: 'cover_${userProfile!['id']}',
-                                child: Image.network(
-                                  '$baseurl${userProfile!['cover_picture']}',
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            // Multiple gradient overlays for better depth
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withOpacity(0.0),
-                                    Colors.black.withOpacity(0.3),
-                                    Colors.black.withOpacity(0.7),
-                                  ],
-                                  stops: [0.0, 0.5, 1.0],
-                                ),
-                              ),
-                            ),
-                            // Side gradients for depth
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [
-                                    Colors.black.withOpacity(0.3),
-                                    Colors.transparent,
-                                    Colors.transparent,
-                                    Colors.black.withOpacity(0.3),
-                                  ],
-                                  stops: [0.0, 0.2, 0.8, 1.0],
-                                ),
-                              ),
-                            ),
-                            // Profile Picture and Name
-                            Positioned(
-                              bottom: 20,
-                              left: 20,
-                              right: 20,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
+                              tag: 'profile_${userProfile!['id']}',
+                              child: Stack(
                                 children: [
-                                  Row(
-                                    children: [
-                                      // Profile picture with hero animation
-                                      Hero(
-                                        tag: 'profile_${userProfile!['id']}',
-                                        child: Container(
-                                          width: 100,
-                                          height: 100,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.white, width: 3),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black26,
-                                                blurRadius: 10,
-                                                spreadRadius: 2,
-                                                offset: Offset(0, 2),
-                                              ),
-                                            ],
-                                          ),
-                                          child: ClipOval(
-                                            child: Image(
-                                              image: userProfile!['profile_picture'] != null
-                                                  ? NetworkImage('$baseurl${userProfile!['profile_picture']}')
-                                                  : AssetImage('assets/placeholder.png') as ImageProvider,
-                                              fit: BoxFit.cover,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 20),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              userProfile!['name'] ?? 'No Name',
-                                              style: TextStyle(
-                                                fontSize: 28,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                                shadows: [
-                                                  Shadow(
-                                                    blurRadius: 10,
-                                                    color: Colors.black.withOpacity(0.5),
-                                                    offset: Offset(0, 2),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                Icon(Icons.location_on, 
-                                                    color: Colors.white.withOpacity(0.9), 
-                                                    size: 16),
-                                                SizedBox(width: 4),
-                                                Text(
-                                                  'Location',
-                                                  style: TextStyle(
-                                                    color: Colors.white.withOpacity(0.9),
-                                                    fontSize: 16,
-                                                    shadows: [
-                                                      Shadow(
-                                                        blurRadius: 8,
-                                                        color: Colors.black.withOpacity(0.5),
-                                                        offset: Offset(0, 1),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                Container(
+                                  width: 100,
+                                  height: 100,
+                                  child: CircularProgressIndicator(
+                                  value: (num.parse(userProfile!['profile_score'].toString())) / 100,
+                                  strokeWidth: 6,
+                                  backgroundColor: Colors.white,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA2D2FF),),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 6,
+                                  left: 6,
+                                  right: 6,
+                                  bottom: 6,
+                                  child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 3),
+                                    boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                      offset: Offset(0, 2),
+                                    ),
                                     ],
                                   ),
+                                  child: ClipOval(
+                                    child: Image(
+                                    image: userProfile!['profile_picture'] != null
+                                      ? NetworkImage('$baseurl${userProfile!['profile_picture']}')
+                                      : AssetImage('assets/placeholder.png') as ImageProvider,
+                                    fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  ),
+                                ),
                                 ],
                               ),
+                              ),
+                              SizedBox(width: 20),
+                              Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                Text(
+                                  userProfile!['name'] ?? 'No Name',
+                                  style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  shadows: [
+                                    Shadow(
+                                    blurRadius: 10,
+                                    color: Colors.black.withOpacity(0.5),
+                                    offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                  Icon(Icons.location_on, 
+                                    color: Colors.white.withOpacity(0.9), 
+                                    size: 16),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Location',
+                                    style: TextStyle(
+                                    color: Colors.white.withOpacity(0.9),
+                                    fontSize: 16,
+                                    shadows: [
+                                      Shadow(
+                                      blurRadius: 8,
+                                      color: Colors.black.withOpacity(0.5),
+                                      offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                    ),
+                                  ),
+                                  ],
+                                ),
+                                ],
+                              ),
+                              ),
+                            ],
                             ),
                           ],
+                          ),
                         ),
+                        ],
+                      ),
                       ),
                     ),
 
                     // Profile Content
                     SliverToBoxAdapter(
                       child: Container(
-                        padding: EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      padding: EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                        // About Section
+                        if (userProfile!['bio'] != null) ...[
+                          Text(
+                          'About',
+                                    style: TextStyle(
+                            fontSize: 19,
+                            color: const Color.fromARGB(221, 65, 63, 63),
+                          ),
+                          ),
+                          SizedBox(height: 12),
+                          Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              spreadRadius: 0,
+                            ),
+                            ],
+                          ),
+                          child: Text(
+                            userProfile!['bio'].toString(),
+                            style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black87,
+                            height: 1.5,
+                            ),
+                          ),
+                          ),
+                          SizedBox(height: 24),
+                        ],
+
+                        // Relationship Status and Looking For Section
+                        Row(
                           children: [
-                            // About Section
-                            if (userProfile!['bio'] != null) ...[
+                          Expanded(
+                            child: Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                                color: Color.fromARGB(255, 255, 255, 255),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                              ],
+                            ),
+                            child:Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Row(
+      children: [
+        Icon(
+          Icons.favorite, // Heart icon
+          size: 16,
+          color: const Color.fromARGB(221, 102, 101, 101),
+        ),
+        SizedBox(width: 4), // Add some space between the icon and text
+        Text(
+          'Relationship Status',
+          style: TextStyle(
+            fontSize: 10,
+            color: const Color.fromARGB(221, 102, 101, 101),
+          ),
+        ),
+      ],
+    ),
+    SizedBox(height: 8),
+    Text(
+      userProfile!['relationship_status'] ?? 'Not specified',
+      style: TextStyle(
+        fontSize: 16,
+        color: Colors.black87,
+        height: 1.5,
+      ),
+    ),
+  ],
+)
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                                color: Color.fromARGB(255, 255, 255, 255),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                               Text(
-                                'About',
+                                'Looking For',
                                 style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                fontSize:10,
+                                color: const Color.fromARGB(221, 99, 98, 98),
                                 ),
                               ),
-                              SizedBox(height: 12),
-                              Container(
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      spreadRadius: 0,
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  userProfile!['bio'].toString(),
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: 24),
-                            ],
-
-                            // Interests Section
-                            if (userInterests.isNotEmpty) ...[
+                              SizedBox(height: 8),
                               Text(
-                                'Interests',
+                                userProfile!['looking_for'] ?? 'Not specified',
                                 style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: userInterests.map((interest) {
-                                  return Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.pinkAccent.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.pinkAccent.withOpacity(0.3),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      interest,
-                                      style: TextStyle(
-                                        color: Colors.pinkAccent,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                              SizedBox(height: 24),
-                            ],
-
-                            // Basic Info Section
-                            Text(
-                              'Basic Info',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                                 color: Colors.black87,
+                                height: 1.5,
+                                ),
                               ),
+                              ],
                             ),
-                            SizedBox(height: 12),
-                            Container(
-                              padding: EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 10,
-                                    spreadRadius: 0,
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                children: [
-                                  _buildInfoRow(Icons.person, 'Gender', userProfile!['gender']),
-                                  Divider(height: 20),
-                                  _buildInfoRow(Icons.cake, 'Birthday', userProfile!['date_of_birth']),
-                                  Divider(height: 20),
-                                  _buildInfoRow(Icons.favorite, 'Likes', '${userProfile!['likes_received']}'),
-                                  Divider(height: 20),
-                                  _buildInfoRow(Icons.star, 'Profile Score', '${userProfile!['profile_score']}'),
-                                ],
-                              ),
                             ),
+                          ),
                           ],
                         ),
+                        SizedBox(height: 24),
+
+                        // Interests Section
+                        if (userInterests.isNotEmpty) ...[
+                          Text(
+                          'Interests',
+                            style: TextStyle(
+                            fontSize: 19,
+                            color: const Color.fromARGB(221, 65, 63, 63),
+                          ),
+                          ),
+                          SizedBox(height: 12),
+                          Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: userInterests.map((interest) {
+                            return Container(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color.fromARGB(255, 223, 219, 219).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                        
+                            ),
+                            child: Text(
+                              interest,
+                              style: TextStyle(
+                              color: Colors.pinkAccent,
+                              fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            );
+                          }).toList(),
+                          ),
+                          SizedBox(height: 24),
+                        ],
+
+                        // Basic Info Section
+                        Text(
+                          'Basic Info',
+                                 style: TextStyle(
+                            fontSize: 19,
+                            color: const Color.fromARGB(221, 65, 63, 63),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            spreadRadius: 0,
+                            ),
+                          ],
+                          ),
+                          child: Column(
+                          children: [
+                            _buildInfoRow(Icons.person, 'Gender', userProfile!['gender']),
+                            Divider(height: 20),
+                            _buildInfoRow(Icons.cake, 'Birthday', userProfile!['date_of_birth']),
+                            Divider(height: 20),
+                            _buildInfoRow(Icons.favorite, 'Likes', '${userProfile!['likes_received']}'),
+                            Divider(height: 20),
+                            _buildInfoRow(Icons.star, 'Profile Score', '${userProfile!['profile_score']}'),
+                          ],
+                          ),
+                        ),
+                        ],
+                      ),
                       ),
                     ),
                   ],

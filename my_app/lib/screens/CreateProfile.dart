@@ -320,142 +320,152 @@ Future _createLookingForPreferences() async {
 }
 
   // Submit Form
-  Future<void> submitForm() async {
-    // Ensure all required fields are filled
-    if (usernameController.text.isEmpty || phoneNumberController.text.isEmpty || nameController.text.isEmpty) {
-      Fluttertoast.showToast(
-        msg: 'Please fill in all required fields',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-      return; // Exit if validation fails
-    }
-
-    // Debugging output to check values before submission
-    print('Username: ${usernameController.text}');
-    print('Phone Number: ${phoneNumberController.text}');
-    print('Name: ${nameController.text}');
-    print('Date of Birth: ${dobController.text}');
-    print('Gender: $selectedGender');
-    print('Bio: ${bioController.text}');
-    print('Selected Interests: $selectedInterests');
-    print('Gender Preferences: $selectedGenderPreference');
-    print('min age $minAge');
-    print('max_age: $maxAge');
-    print('relationship_type: $selectedRelationshipType');
-    print('Sexual Orientation: $sexualOrientation');
-    print('Language Spoken: $languageSpoken');
-    print('Personality Type: $introvertOrExtrovert');
-    print('Smoking Habits: $smokingHabits');
-    print('Drinking Habits: $drinkingHabits');
-    print('Relationship Goal: $relationshipGoal');
-    print('Height: $height');
-    print('Relationship Status: $relationshipStatus');
-    print('Family Orientation: $familyOrientation');
-    print('Body Type: $bodyType');
-    print('Hair Color: $hairColor');
-    print('Eye Color: $eyeColor');
-    print('Education Level: $educationLevel');
-    print('Occupation: $occupation');
-    print('Industry: $industry');
-
-    var request = http.MultipartRequest('POST', Uri.parse(_apiEndpoint));
-
-    // Populate request fields
-    request.fields['username'] = usernameController.text.trim();
-    request.fields['phone_number'] = phoneNumberController.text.trim();
-    request.fields['name'] = nameController.text.trim();
-    request.fields['date_of_birth'] = dobController.text.trim();
-    request.fields['gender'] = selectedGender ?? '';
-    request.fields['bio'] = bioController.text.trim();
-    request.fields['sexual_orientation'] = sexualOrientation ?? '';
-    request.fields['language_spoken'] = languageSpoken ?? '';
-    request.fields['personality_type'] = introvertOrExtrovert ?? '';
-    request.fields['smoking_habits'] = smokingHabits ?? '';
-    request.fields['drinking_habits'] = drinkingHabits ?? '';
-    request.fields['relationship_goal'] = relationshipGoal ?? '';
-    request.fields['height'] = height?.toString() ?? '';
-    request.fields['relationship_status'] = relationshipStatus ?? '';
-    request.fields['relationship_type'] = userRelationshipType ?? '';
-    request.fields['family_orientation'] = familyOrientation ?? '';
-    request.fields['body_type'] = bodyType ?? '';
-    request.fields['hair_color'] = hairColor ?? '';
-    request.fields['eye_color'] = eyeColor ?? '';
-    request.fields['education_level'] = educationLevel ?? '';
-    request.fields['occupation'] = occupation ?? '';
-    request.fields['industry'] = industry ?? '';
-
-    // Add interests to request
-    if (selectedInterests.isNotEmpty) {
-      request.fields['interests'] = selectedInterests.join(','); // Ensure IDs are sent
-    }
-
-    // Add preferences
-    request.fields['gender_preference'] = selectedGenderPreference ?? '';
-    request.fields['min_age'] = minAge.toString();
-    request.fields['max_age'] = maxAge.toString();
-    request.fields['relationship_type'] = selectedRelationshipType ?? '';
-
-    // Add files to the request if they exist
-    if (profilePicture != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-          'profile_picture', profilePicture!.path));
-    }
-    if (coverPicture != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-          'cover_picture', coverPicture!.path));
-    }
-    if (videoProfile != null) {
-      request.files.add(await http.MultipartFile.fromPath(
-          'video_profile', videoProfile!.path));
-    }
-
-    try {
-      request.headers['Authorization'] = 'Bearer $accessToken';
-      var response = await request.send();
-
-      if (response.statusCode == 201) {
-        Fluttertoast.showToast(
-          msg: 'Profile created successfully!',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-        );
-
-        // Ensure we have the latest tokens before navigation
-        final prefs = await SharedPreferences.getInstance();
-        final latestAccessToken = prefs.getString('access_token');
-        final latestRefreshToken = prefs.getString('refresh_token');
-
-        if (latestAccessToken != null && latestRefreshToken != null) {
-          Navigator.pushReplacementNamed(
-            context,
-            '/home',
-            arguments: {
-              'accessToken': latestAccessToken,
-              'refreshToken': latestRefreshToken,
-            },
-          );
-        } else {
-          throw Exception('Tokens not found after profile creation');
-        }
-      } else {
-        var responseBody = await response.stream.bytesToString();
-        print('Error: ${response.statusCode}, Response Body: $responseBody'); // Debugging output
-        Fluttertoast.showToast(
-          msg: 'Error: $responseBody',
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-        );
-      }
-    } catch (e) {
-      print('An error occurred: $e'); // Debugging output
-      Fluttertoast.showToast(
-        msg: 'An error occurred: $e',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-      );
-    }
+Future<void> submitForm() async {
+  // Ensure all required fields are filled
+  if (usernameController.text.isEmpty || phoneNumberController.text.isEmpty || nameController.text.isEmpty) {
+    Fluttertoast.showToast(
+      msg: 'Please fill in all required fields',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+    );
+    return; // Exit if validation fails
   }
+
+  // Debugging output to check values before submission
+  print('Username: ${usernameController.text}');
+  print('Phone Number: ${phoneNumberController.text}');
+  print('Name: ${nameController.text}');
+  print('Date of Birth: ${dobController.text}');
+  print('Gender: $selectedGender');
+  print('Bio: ${bioController.text}');
+  print('Selected Interests: $selectedInterests');
+  print('Gender Preferences: $selectedGenderPreference');
+  print('min age $minAge');
+  print('max_age: $maxAge');
+  print('relationship_type: $selectedRelationshipType');
+  print('Sexual Orientation: $sexualOrientation');
+  print('Language Spoken: $languageSpoken');
+  print('Personality Type: $introvertOrExtrovert');
+  print('Smoking Habits: $smokingHabits');
+  print('Drinking Habits: $drinkingHabits');
+  print('Relationship Goal: $relationshipGoal');
+  print('Height: $height');
+  print('Relationship Status: $relationshipStatus');
+  print('Family Orientation: $familyOrientation');
+  print('Body Type: $bodyType');
+  print('Hair Color: $hairColor');
+  print('Eye Color: $eyeColor');
+  print('Education Level: $educationLevel');
+  print('Occupation: $occupation');
+  print('Industry: $industry');
+
+  // Print partner preferences
+  print('Partner Preferences:');
+  print('Gender Preference: $selectedGenderPreference');
+  print('Minimum Age: $minAge');
+  print('Maximum Age: $maxAge');
+  print('Relationship Type: $selectedRelationshipType');
+  print('Interests: $lookingForInterests'); // Ensure this is the correct variable
+
+  var request = http.MultipartRequest('POST', Uri.parse(_apiEndpoint));
+
+  // Populate request fields
+  request.fields['username'] = usernameController.text.trim();
+  request.fields['phone_number'] = phoneNumberController.text.trim();
+  request.fields['name'] = nameController.text.trim();
+  request.fields['date_of_birth'] = dobController.text.trim();
+  request.fields['gender'] = selectedGender ?? '';
+  request.fields['bio'] = bioController.text.trim();
+  request.fields['sexual_orientation'] = sexualOrientation ?? '';
+  request.fields['language_spoken'] = languageSpoken ?? '';
+  request.fields['personality_type'] = introvertOrExtrovert ?? '';
+  request.fields['smoking_habits'] = smokingHabits ?? '';
+  request.fields['drinking_habits'] = drinkingHabits ?? '';
+  request.fields['relationship_goal'] = relationshipGoal ?? '';
+  request.fields['height'] = height?.toString() ?? '';
+  request.fields['relationship_status'] = relationshipStatus ?? '';
+  request.fields['relationship_type'] = userRelationshipType ?? '';
+  request.fields['family_orientation'] = familyOrientation ?? '';
+  request.fields['body_type'] = bodyType ?? '';
+  request.fields['hair_color'] = hairColor ?? '';
+  request.fields['eye_color'] = eyeColor ?? '';
+  request.fields['education_level'] = educationLevel ?? '';
+  request.fields['occupation'] = occupation ?? '';
+  request.fields['industry'] = industry ?? '';
+
+  // Add interests to request
+  if (selectedInterests.isNotEmpty) {
+    request.fields['interests'] = selectedInterests.join(','); // Ensure IDs are sent
+  }
+
+  // Add files to the request if they exist
+  if (profilePicture != null) {
+    request.files.add(await http.MultipartFile.fromPath(
+        'profile_picture', profilePicture!.path));
+  }
+  if (coverPicture != null) {
+    request.files.add(await http.MultipartFile.fromPath(
+        'cover_picture', coverPicture!.path));
+  }
+  if (videoProfile != null) {
+    request.files.add(await http.MultipartFile.fromPath(
+        'video_profile', videoProfile!.path));
+  }
+
+  try {
+    request.headers['Authorization'] = 'Bearer $accessToken';
+    var response = await request.send();
+
+    if (response.statusCode == 201) {
+      Fluttertoast.showToast(
+        msg: 'Profile created successfully!',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+      );
+
+      // Ensure we have the latest tokens before navigation
+      final prefs = await SharedPreferences.getInstance();
+      final latestAccessToken = prefs.getString('access_token');
+      final latestRefreshToken = prefs.getString('refresh_token');
+      print("Before checking the toekn");
+      if (latestAccessToken != null && latestRefreshToken != null) {
+        print("After checking the toekn");
+        print("now callning the looking for endpoint");
+
+        // Now submit the partner preferences to the /looking-for endpoint
+        await _createLookingForPreferences();
+
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: {
+            'accessToken': latestAccessToken,
+            'refreshToken': latestRefreshToken,
+          },
+        );
+      } else {
+        throw Exception('Tokens not found after profile creation');
+      }
+    } else {
+      var responseBody = await response.stream.bytesToString();
+      print('Error: ${response.statusCode}, Response Body: $responseBody'); // Debugging output
+      Fluttertoast.showToast(
+        msg: 'Error: $responseBody',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+      );
+    }
+  } catch (e) {
+    print('An error occurred: $e'); // Debugging output
+    Fluttertoast.showToast(
+      msg: 'An error occurred: $e',
+      toastLength: Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+    );
+  }
+}
+
+
 Widget build(BuildContext context) {
   return Scaffold(
     backgroundColor: Colors.transparent, // Set transparent to see SafeArea color
@@ -723,7 +733,7 @@ Widget _buildAdditionalInfoSection() {
 
           // Education Level
           _buildTextFieldWithIcon(
-            TextEditingController(),
+           educationcontroller,
             'Education Level',
             Icons.school,
             false,
@@ -735,7 +745,7 @@ Widget _buildAdditionalInfoSection() {
 
           // Occupation
           _buildTextFieldWithIcon(
-            TextEditingController(),
+            occupationcontroller,
             'Occupation',
             Icons.work,
             false,
@@ -747,7 +757,7 @@ Widget _buildAdditionalInfoSection() {
 
           // Industry
           _buildTextFieldWithIcon(
-            TextEditingController(),
+            industrycontroller,
             'Industry',
             Icons.business,
             false,
@@ -836,7 +846,7 @@ Widget _buildAdditionalInfoSection() {
 
           // Height
           _buildTextFieldWithIcon(
-            TextEditingController(),
+            heightcontroller,
             'Height (cm)',
             Icons.height,
             false,
@@ -1364,10 +1374,11 @@ Widget _buildPreferenceInterestSection() {
                     // Ensure all data is validated and submitted
                       submitForm(); // Call submitForm if validation passes
                   },
-                  child: Text('Submit'),
-                  style: OutlinedButton.styleFrom(
+                    child: Text('Submit', style: TextStyle(color: Colors.white)),
+                    style: OutlinedButton.styleFrom(
+                    backgroundColor: Color(0xFFE91E63), // Background color
                     side: BorderSide(color: const Color.fromARGB(221, 207, 59, 116)), // Outline color
-                  ),
+                    ),
                 ),
         ),
       ],

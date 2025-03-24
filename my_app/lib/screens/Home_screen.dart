@@ -67,12 +67,14 @@ SingleTickerProviderStateMixin {
   String? accessToken;
   String? refreshToken;
 bool _isSwipingRight = false;
+bool _isSwipingLeft = false;
 
   // Add variables to store user details
   String? _userName;
   String? _userEmail;
   String? _profilePicture;
   int? _creditScore;// Initialize with a default value
+    Map<int, String> allInterests = {};
 
   // Function to fetch matches from the API
 
@@ -274,6 +276,7 @@ Future<void> _fetchMatches() async {
 @override
 void initState() {
   super.initState();
+  fetchInterests();
     _loadIncognitoMode();
   _tabController = TabController(length: 3, vsync: this);
 
@@ -779,7 +782,7 @@ void _showSettingsBottomSheet(BuildContext context) {
                     },
                   ),
                   ListTile(
-                    leading: Icon(Icons.notifications, color: primaryColor),
+                    leading: Icon(Icons.notifications,  color: Color(0xFFE91E63),),
                     title: Text('Notification settings', style: TextStyle(color: textColor)),
                     onTap: () {
                      _showOptionBottomSheet(context, 'notifications'); // Navigate to Notifications Screen
@@ -1173,56 +1176,56 @@ Widget _buildAnimatedIcon(IconData icon, int index) {
     ),
   );
 }
-
 Widget _buildMatchesScreen() {
-  return DefaultTabController(
-    length: 3, // Number of tabs
-    child: RefreshIndicator(
-      onRefresh: () => RefreshHelper.onMatchesRefresh(context),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Your Matches',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.pinkAccent,
-                ),
-              ),
-            ),
-            // TabBar for Matches, Likes, Who Liked Me
-            TabBar(
-              labelColor: Colors.pinkAccent,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.pinkAccent,
-              tabs: const [
-                Tab(text: 'Matches'),
-                Tab(text: 'Likes'),
-                Tab(text: 'Who Liked Me'),
-              ],
-            ),
-            // Tab content
-            Container(
-              height: 500, // Adjust height based on your content
-              child: TabBarView(
-                children: [
-                  _buildMatchesTabContent('matches'), // Matches tab
-                  _buildLikedTabContent('likes'), // Likes tab
-                  _buildWhoLikedMeTabContent('whoLikedMe'), // Who Liked Me tab
+  return Scaffold(
+    appBar: AppBar(
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: Text(
+        'Your Matches',
+        style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    ),
+    body: DefaultTabController(
+      length: 3, // Number of tabs
+      child: RefreshIndicator(
+        onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Header
+              // TabBar for Matches, Likes, Who Liked Me
+              TabBar(
+                labelColor: Colors.pinkAccent,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Colors.pinkAccent,
+                tabs: const [
+                  Tab(text: 'Matches'),
+                  Tab(text: 'Likes'),
+                  Tab(text: 'Who Liked Me'),
                 ],
               ),
-            ),
-          ],
+              // Tab content
+              Container(
+                height: 500, // Adjust height based on your content
+                child: TabBarView(
+                  children: [
+                    _buildMatchesTabContent('matches'), // Matches tab
+                    _buildLikedTabContent('likes'), // Likes tab
+                    _buildWhoLikedMeTabContent('whoLikedMe'), // Who Liked Me tab
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
   );
 }
-
 // .....................................................................................................
 // Matches Section
 // ................................................................
@@ -1964,91 +1967,83 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
 // Home tab with header
 Widget _buildHomeScreen() {
   return Scaffold(
-appBar: AppBar(
-  systemOverlayStyle: SystemUiOverlayStyle(
-    statusBarColor: const Color.fromARGB(255, 223, 203, 211),
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: const Color.fromARGB(255, 223, 203, 211),
-    systemNavigationBarIconBrightness: Brightness.dark,
-  ),
-  backgroundColor: Colors.white, // Customize the background color
-  leading: Row(
-    mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
-    crossAxisAlignment: CrossAxisAlignment.center, // Center the children vertically
-    children: [
-      Container(
-        width: 36, // Reduced width to fit better
-        height: 36, // Reduced height to fit better
-        margin: EdgeInsets.all(3), // Reduced margin
-        child: ClipOval(
-          child: CircleAvatar(
-            radius: 18, // Adjusted radius to fit within the Container
-            backgroundImage: _profilePicture != null
-                ? NetworkImage('$baseurl$_profilePicture')
-                : null,
-          ),
-        ),
-      ),
-      SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
-      TweenAnimationBuilder<int>(
-        tween: IntTween(begin: 0, end: _creditScore ?? 0),
-        duration: const Duration(seconds: 2),
-        builder: (context, value, child) {
-          return Text(
-            '$value',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color.fromARGB(255, 112, 117, 120),
-            ),
-          );
-        },
-      ),
-    ],
-  ),
-  actions: [
-    IconButton(
-      icon: const Icon(Icons.filter_alt, size: 20), // Add filter button
-      onPressed: _showFilterScreen,
-    ),
-   IconButton(
-  icon: Image.asset(
-    'assets/bell.png', // Replace with your notifications icon asset path
-    width: 20, // Adjust the size as needed
-    height: 20,
-  ),
-  onPressed: () {
-    // Navigate to the NotificationScreen
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => NotificationScreen()),
-    );
-  },
-),
-    IconButton(
-  icon: Image.asset(
-    'assets/settings.png', // Replace with your settings icon asset path
-    width: 20, // Adjust the size as needed
-    height: 20,
-  ),
-  onPressed: () {
-    _showSettingsBottomSheet(context);
-  },
-)
-  ],
-),
-    body: Column(
-       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: 0,
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
+    appBar: AppBar(
+      // systemOverlayStyle: SystemUiOverlayStyle(
+      //   statusBarColor: const Color.fromARGB(255, 223, 203, 211),
+      //   statusBarIconBrightness: Brightness.dark,
+      //   systemNavigationBarColor: const Color.fromARGB(255, 223, 203, 211),
+      //   systemNavigationBarIconBrightness: Brightness.dark,
+      // ),
+      backgroundColor: Colors.white, // Customize the background color
+      leading: Row(
+        mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
+        crossAxisAlignment: CrossAxisAlignment.center, // Center the children vertically
+        children: [
+          Container(
+            width: 36, // Reduced width to fit better
+            height: 36, // Reduced height to fit better
+            margin: EdgeInsets.all(3), // Reduced margin
+            child: ClipOval(
+              child: CircleAvatar(
+                radius: 18, // Adjusted radius to fit within the Container
+                backgroundImage: _profilePicture != null
+                    ? NetworkImage('$baseurl$_profilePicture')
+                    : null,
               ),
-              child: _buildSuggestedMatches(),
             ),
           ),
+          SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: _creditScore ?? 0),
+            duration: const Duration(seconds: 2),
+            builder: (context, value, child) {
+              return Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 112, 117, 120),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.filter_alt, size: 20), // Add filter button
+          onPressed: _showFilterScreen,
+        ),
+        IconButton(
+          icon: Image.asset(
+            'assets/bell.png', // Replace with your notifications icon asset path
+            width: 20, // Adjust the size as needed
+            height: 20,
+          ),
+          onPressed: () {
+            // Navigate to the NotificationScreen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => NotificationScreen()),
+            );
+          },
+        ),
+        IconButton(
+          icon: Image.asset(
+            'assets/settings.png', // Replace with your settings icon asset path
+            width: 20, // Adjust the size as needed
+            height: 20,
+          ),
+          onPressed: () {
+            _showSettingsBottomSheet(context);
+          },
+        )
+      ],
+    ),
+    body: Column(
+      children: [
+        Expanded(
+          child: _buildSuggestedMatches(),
         ),
       ],
     ),
@@ -2162,7 +2157,7 @@ appBar: AppBar(
                     const SizedBox(height: 20),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pinkAccent,
+                        backgroundColor:Color(0xFFE91E63),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -2298,8 +2293,49 @@ Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPress
     ),
   );
 }
+
+ void showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+Future<void> fetchInterests() async {
+   final accessToken = await _getAccessToken();
+
+  if (accessToken == null) {
+    showErrorSnackBar('Access token is missing.');
+    return;
+  }
+
+  try {
+    final response = await http.get(
+      Uri.parse('$baseurl/auth/interests/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> interestsData = json.decode(response.body);
+
+      setState(() {
+        allInterests = {for (var interest in interestsData) interest['id']: interest['name']};
+      });
+    } else {
+      showErrorSnackBar('Error fetching interests');
+    }
+  } catch (e) {
+    showErrorSnackBar('An error occurred while fetching interests.');
+  }
+}
 // Call fetchCurrentUserId on the widget's initStat
 Widget _buildSuggestedMatches() {
+  // Remove duplicates
+  final uniqueMatches = Set.from(_matches.map((match) => match['user_id']));
+  _matches = _matches.where((match) => uniqueMatches.contains(match['user_id'])).toList();
+
   // Check if data is still loading
   if (_isLoading) {
     return Center(child: CircularProgressIndicator());
@@ -2331,18 +2367,17 @@ Widget _buildSuggestedMatches() {
       ),
     );
   }
+  print('_matches: $_matches');
 
   return Container(
-    padding: const EdgeInsets.all(16.0),
+    color: const Color.fromARGB(255, 247, 244, 246), // Use a single color for the background
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
         Expanded(
           child: SizedBox(
-            // Use MediaQuery to get the device's screen width
             width: MediaQuery.of(context).size.width,
-            height: 600, // Increased height to 600
+            height: MediaQuery.of(context).size.height * 0.8, // 80% of the screen height
             child: Stack(
               children: [
                 CardSwiper(
@@ -2400,7 +2435,7 @@ Widget _buildSuggestedMatches() {
                             ),
                           ),
                           Positioned(
-                            bottom: 70,
+                            bottom: 46,
                             left: 16,
                             right: 16,
                             child: Column(
@@ -2409,8 +2444,8 @@ Widget _buildSuggestedMatches() {
                                 Text(
                                   profile['name'] ?? 'No Name',
                                   style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: 29,
+                                    
                                     color: Colors.white,
                                     letterSpacing: 0.5,
                                     shadows: [
@@ -2437,16 +2472,35 @@ Widget _buildSuggestedMatches() {
                                       size: 16,
                                     ),
                                     const SizedBox(width: 4),
-                                    Text(
-                                      profile['location'] ?? 'Location not specified',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white70,
-                                        fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
-                                      ),
-                                    ),
+                               Text(
+                                  match['distance_km'] != null ? match['distance_km'].toString() : 'Location not specified',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: const Color.fromARGB(179, 255, 255, 255),
+                                    fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
+                                  ),
+                                ),
                                   ],
                                 ),
+                                const SizedBox(height: 6),
+                             Wrap(
+  spacing: 6,
+  children: (profile['interests'] as List<dynamic>?)
+      ?.map((interestId) => Chip(
+            label: Text(
+              allInterests[interestId] ?? 'Unknown',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.black, // Set the background color to black\
+            
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16), // Adjust the radius as needed
+              side: BorderSide.none, // Ensure there is no border
+            ),
+          ))
+      .toList() ??
+      [],
+)
                               ],
                             ),
                           ),
@@ -2472,11 +2526,16 @@ Widget _buildSuggestedMatches() {
                         swipedOnId: _matches[index]['user_id'],
                       );
                     }
+
+                    // Remove the swiped card from the list
+                    setState(() {
+                      _matches.removeAt(index);
+                    });
                   },
                 ),
                 // Buttons overlay
                 Positioned(
-                  bottom: -6, // Adjust the position to partially overlap the cards
+                  bottom:0, // Adjust the position to partially overlap the cards
                   left: 0,
                   right: 0,
                   child: Row(
@@ -2621,13 +2680,25 @@ Widget _buildSuggestedMatches() {
                 ),
                 // Swipe indicator image
                 Positioned(
+                  left: 0,
+                  bottom: 0,
+                  child: Visibility(
+                    visible: _isSwipingLeft,
+                    child: Image.asset(
+                      'assets/dislike.png',
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
+                ),
+                Positioned(
                   right: 0,
                   bottom: 0,
                   child: Visibility(
                     visible: _isSwipingRight,
                     child: Image.asset(
-                      'assets/like.png', // Replace with your swipe indicator image
-                      width: 100, // Adjust the size as needed
+                      'assets/like.png',
+                      width: 100,
                       height: 100,
                     ),
                   ),
