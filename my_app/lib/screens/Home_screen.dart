@@ -359,70 +359,68 @@ Future<void> updateIncognitoMode(bool active, String accessToken, BuildContext c
 void _showSubscriptionRequiredDialog(BuildContext context) {
   showDialog(
     context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
-        backgroundColor: Colors.transparent, // Make the AlertDialog background transparent
-        content: Container(
-          width: double.maxFinite,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black87, // Darker color at the top
-                Colors.grey.shade800, // Lighter color at the bottom
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16), // Rounded corners
+    builder: (BuildContext context) => AlertDialog(
+      backgroundColor: Colors.transparent, // Make the AlertDialog background transparent
+      content: Container(
+        width: double.maxFinite,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black87, // Darker color at the top
+              Colors.grey.shade800, // Lighter color at the bottom
+            ],
           ),
-          
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 16), // Add some space at the top
+          borderRadius: BorderRadius.circular(16), // Rounded corners
+        ),
+        
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 16), // Add some space at the top
             Image.asset(
     'assets/incognito.png',
     color: const Color.fromARGB(255, 255, 255, 255),
     width: 24,
     height: 24,
   ),
-              SizedBox(height: 16), // Add some space below the icon
-              Text(
-                'Subscription Required',
+            SizedBox(height: 16), // Add some space below the icon
+            Text(
+              'Subscription Required',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16), // Add some space below the title
+            Text(
+              'You have not subscribed to any plans. Please subscribe in order to enable incognito mode.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24), // Add some space below the content
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'OK',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                  fontSize: 18,
                 ),
               ),
-              SizedBox(height: 16), // Add some space below the title
-              Text(
-                'You have not subscribed to any plans. Please subscribe in order to enable incognito mode.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 24), // Add some space below the content
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text(
-                  'OK',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 18,
-                  ),
-                ),
-              ),
-              SizedBox(height: 16), // Add some space at the bottom
-            ],
-          ),
+            ),
+            SizedBox(height: 16), // Add some space at the bottom
+          ],
         ),
-      );
-    },
+      ),
+    ),
   );
 }
 
@@ -767,13 +765,13 @@ void _showSettingsBottomSheet(BuildContext context) {
                       );
                     },
                   ),
-                  ListTile(
-                    leading: Icon(Icons.favorite, color: primaryColor),
-                    title: Text('Likes & Matches', style: TextStyle(color: textColor)),
-                    onTap: () {
-                      // Navigate to Likes & Matches Screen
-                    },
-                  ),
+                  // ListTile(
+                  //   leading: Icon(Icons.favorite, color: primaryColor),
+                  //   title: Text('Likes & Matches', style: TextStyle(color: textColor)),
+                  //   onTap: () {
+                  //     // Navigate to Likes & Matches Screen
+                  //   },
+                  // ),
                   ListTile(
                     leading: Icon(Icons.people, color: primaryColor),
                     title: Text('Preferences', style: TextStyle(color: textColor)),
@@ -822,33 +820,33 @@ void _showSettingsBottomSheet(BuildContext context) {
                     // Navigate to Privacy Screen or handle tap action
                   },
                 ),
-                  Divider(),
-                  ListTile(
-                    leading: Icon(Icons.person_search, color: primaryColor),
-                    title: Text('Looking For', style: TextStyle(color: textColor)),
-                    trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                    onTap: () {
-                      _showOptionBottomSheet(context, 'lookingFor');
-                      // Navigate to Looking For Screen
-                    },
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.open_with, color: primaryColor),
-                    title: Text('Open To', style: TextStyle(color: textColor)),
-                    trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                    onTap: () {
-                      _showOptionBottomSheet(context, 'openTo');
-                    },
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.language, color: primaryColor),
-                    title: Text('Add Languages', style: TextStyle(color: textColor)),
-                    trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                    onTap: () {
-                      _showOptionBottomSheet(context, 'addLanguages');
-                    },
-                  ),
-                  Divider(),
+                  // Divider(),
+                  // ListTile(
+                  //   leading: Icon(Icons.person_search, color: primaryColor),
+                  //   title: Text('Looking For', style: TextStyle(color: textColor)),
+                  //   trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                  //   onTap: () {
+                  //     _showOptionBottomSheet(context, 'lookingFor');
+                  //     // Navigate to Looking For Screen
+                  //   },
+                  // ),
+                  // ListTile(
+                  //   leading: Icon(Icons.open_with, color: primaryColor),
+                  //   title: Text('Open To', style: TextStyle(color: textColor)),
+                  //   trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                  //   onTap: () {
+                  //     _showOptionBottomSheet(context, 'openTo');
+                  //   },
+                  // ),
+                  // // ListTile(
+                  // //   leading: Icon(Icons.language, color: primaryColor),
+                  // //   title: Text('Add Languages', style: TextStyle(color: textColor)),
+                  // //   trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                  // //   onTap: () {
+                  // //     _showOptionBottomSheet(context, 'addLanguages');
+                  // //   },
+                  // // ),
+                  // Divider(),
                   ListTile(
                     leading: Icon(Icons.help_outline, color: primaryColor),
                     title: Text('Help & Support', style: TextStyle(color: textColor)),
@@ -1549,9 +1547,8 @@ Future<String> _fetchLikeViewStatus() async {
     return 'none'; // Default to none in case of an error
   }
 }
-
 Widget _buildWhoLikedMeTabContent(String tabType) {
-  return FutureBuilder<String>( 
+  return FutureBuilder<String>(
     future: _fetchLikeViewStatus(),
     builder: (context, likeViewSnapshot) {
       if (likeViewSnapshot.connectionState == ConnectionState.waiting) {
@@ -1559,6 +1556,7 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
       }
       
       final shouldBlurAll = likeViewSnapshot.data == 'blur';
+      print('Like view status: ${likeViewSnapshot.data}'); // Log like view status
 
       return FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchLikedByUsers(),
@@ -1566,6 +1564,7 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
+            print('Error fetching liked by users: ${snapshot.error}');
             return Center(
               child: Text(
                 'Error: ${snapshot.error}',
@@ -1573,16 +1572,30 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
               ),
             );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            print('No users have liked your profile');
             return const Center(
               child: Text('No one has liked your profile yet'),
             );
           } else {
             final likedByUsers = snapshot.data!;
+            print('Users who interacted with your profile (Total: ${likedByUsers.length}):');
+            
+            final superlikedUsers = likedByUsers.where((user) => user['swipe_type'] == 'superlike').toList();
+            final likedUsers = likedByUsers.where((user) => user['swipe_type'] == 'like').toList();
+            final allUsers = [...superlikedUsers, ...likedUsers];
+
+            for (var user in allUsers) {
+              print('User ID: ${user['swiper']}');
+              print('Username: ${user['swiper_username']}');
+              print('Interaction Type: ${user['swipe_type']}');
+              print('Timestamp: ${user['timestamp']}');
+            }
+
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              itemCount: likedByUsers.length,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              itemCount: allUsers.length,
               itemBuilder: (context, index) {
-                final user = likedByUsers[index];
+                final user = allUsers[index];
                 return FutureBuilder<Map<String, dynamic>>(
                   future: _fetchUserwholiked(user['swiper']),
                   builder: (context, userDetailsSnapshot) {
@@ -1603,83 +1616,174 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
                         ? 'http://192.168.1.241:8000${userDetails['profile_picture']}'
                         : null;
 
+                    print('Detailed info for user ${user['swiper_username']}:');
+                    print('Name: ${userDetails['name'] ?? 'N/A'}');
+                    print('Bio: ${userDetails['bio'] ?? 'N/A'}');
+                    print('Profile Picture URL: $profilePicUrl');
+
+                    final isSuperlike = user['swipe_type'] == 'superlike';
+
                     return GestureDetector(
                       onTap: shouldBlurAll ? null : () {
-                        _checkAndNavigateToProfile(
-                          context, 
-                          userDetails, 
-                          user['swiper']
-                        );
+                        _checkAndNavigateToProfile(context, userDetails, user['swiper']);
                       },
                       child: Card(
                         elevation: 4,
+                        shadowColor: Colors.black.withOpacity(0.1),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Stack(
-                            children: [
-                              CachedNetworkImage(
-                                imageUrl: profilePicUrl ?? '',
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  height: 200,
-                                  color: Colors.grey[200],
-                                  child: const Center(child: CircularProgressIndicator()),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width - 32, // Account for horizontal padding
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: isSuperlike
+                                  ? [Colors.blueGrey[50]!, Colors.blueGrey[100]!]
+                                  : [Colors.white, Colors.grey[50]!],
+                            ),
+                          ),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Profile Image
+                                Container(
+                                  width: 100,
+                                  decoration: BoxDecoration(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      bottomLeft: Radius.circular(12),
+                                    ),
+                                    border: Border.all(
+                                      color: isSuperlike ? Colors.blueGrey[300]! : Colors.grey[300]!,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(11),
+                                      bottomLeft: Radius.circular(11),
+                                    ),
+                                    child: CachedNetworkImage(
+                                      imageUrl: profilePicUrl ?? '',
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(child: CircularProgressIndicator()),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                errorWidget: (context, url, error) => Container(
-                                  height: 200,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.person, size: 50),
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  userDetails['name'] ?? user['swiper_username'],
-                                                  style: const TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.bold,
+                                // User Info
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                userDetails['name'] ?? user['swiper_username'],
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey[900],
+                                                  letterSpacing: 0.2,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: isSuperlike ? Colors.blueGrey[600] : Colors.grey[600],
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    isSuperlike ? Icons.star : Icons.favorite,
+                                                    size: 14,
                                                     color: Colors.white,
                                                   ),
-                                                ),
-                                                if (userDetails['bio'] != null && !shouldBlurAll)
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 4),
-                                                    child: Text(
-                                                      userDetails['bio'],
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: Colors.grey[200],
-                                                      ),
-                                                      maxLines: 2,
-                                                      overflow: TextOverflow.ellipsis,
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    isSuperlike ? 'Superlike' : 'Like',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
-                                              ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (userDetails['bio'] != null && !shouldBlurAll)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 6),
+                                            child: Text(
+                                              userDetails['bio'],
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                                height: 1.4,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (!shouldBlurAll)
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.favorite,
-                                                color: Colors.pinkAccent,
-                                                size: 32,
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 8),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.access_time,
+                                                size: 14,
+                                                color: Colors.grey[500],
                                               ),
+                                              const SizedBox(width: 4),
+                                              Flexible(
+                                                child: Text(
+                                                  ' ${_formatTimestamp(user['timestamp'])}',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[500],
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (!shouldBlurAll)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 8),
+                                            child: ElevatedButton(
                                               onPressed: () {
                                                 handleSwipe(
                                                   swipedUserId: user['swiper'],
@@ -1690,50 +1794,30 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
                                                   SnackBar(
                                                     content: Text('You liked ${userDetails['name'] ?? user['swiper_username']} back!'),
                                                     backgroundColor: Colors.green,
+                                                    behavior: SnackBarBehavior.floating,
                                                   ),
                                                 );
                                               },
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Liked you on ${_formatTimestamp(user['timestamp'])}',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[200],
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: isSuperlike ? Colors.blueGrey[700] : Colors.grey[700],
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(100, 36),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'Like Back',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              if (shouldBlurAll)
-                                Positioned.fill(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                                    child: Container(
-                                      color: Colors.black.withOpacity(0.4),
-                                      child: const Center(
-                                        child: Text(
-                                          'Unlock to see details',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -2134,62 +2218,14 @@ Widget _buildHomeScreen() {
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
-                title: const Text(
-                  'Unlock Profiles', 
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold, 
-                    color: Colors.pinkAccent
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'To view full profiles, you need an active subscription.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:Color(0xFFE91E63),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Close the dialog
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddCreditsScreen(), // Navigate to subscription screen
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'View Subscription Plans',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                actions: [
+                title: Text('Unlock Profiles'), 
+                content: Text('To view full profiles, you need an active subscription.'),
+                actions: <Widget>[
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Text('OK'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
                   ),
                 ],
               );
@@ -2385,6 +2421,7 @@ Widget _buildSuggestedMatches() {
                     final match = _matches[index];
                     final profile = match['profile'];
                     final userId = match['user_id'];
+                    
 
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(15),
@@ -2508,30 +2545,42 @@ Widget _buildSuggestedMatches() {
                       ),
                     );
                   }),
-                  onSwipe: (int index, CardSwiperDirection direction) { 
-                    print('Swiped: index=$index, direction=$direction');
 
-                    if (direction == CardSwiperDirection.right) {
-                      Fluttertoast.showToast(msg: '🔥', backgroundColor: Colors.white, fontSize: 28);
-                      handleSwipe(
-                        swipeType: 'like',
-                        swipedUserId: _currentUserId,
-                        swipedOnId: _matches[index]['user_id'],
-                      );
-                    } else if (direction == CardSwiperDirection.left) {
-                      Fluttertoast.showToast(msg: '😖', backgroundColor: Colors.white, fontSize: 28);
-                      handleSwipe(
-                        swipeType: 'dislike',
-                        swipedUserId: _currentUserId,
-                        swipedOnId: _matches[index]['user_id'],
-                      );
-                    }
+   
+onSwipe: (int index, CardSwiperDirection direction) {
+  setState(() {
+    _isSwipingLeft = direction == CardSwiperDirection.left;
+    _isSwipingRight = direction == CardSwiperDirection.right;
+  });
 
-                    // Remove the swiped card from the list
-                    setState(() {
-                      _matches.removeAt(index);
-                    });
-                  },
+  if (direction == CardSwiperDirection.right) {
+    Fluttertoast.showToast(msg: '🔥', backgroundColor: Colors.white, fontSize: 28);
+    handleSwipe(
+      swipeType: 'like',
+      swipedUserId: _currentUserId,
+      swipedOnId: _matches[index]['user_id'],
+    );
+  } else if (direction == CardSwiperDirection.left) {
+    Fluttertoast.showToast(msg: '😖', backgroundColor: Colors.white, fontSize: 28);
+    handleSwipe(
+      swipeType: 'dislike',
+      swipedUserId: _currentUserId,
+      swipedOnId: _matches[index]['user_id'],
+    );
+  }
+
+  // Delay to hide the swipe indicators after a short time
+  Future.delayed(Duration(milliseconds: 300), () {
+    setState(() {
+      _isSwipingLeft = false;
+      _isSwipingRight = false;
+    });
+  });
+
+  setState(() {
+    _matches.removeAt(index);
+  });
+},
                 ),
                 // Buttons overlay
                 Positioned(
@@ -2679,30 +2728,30 @@ Widget _buildSuggestedMatches() {
                   ),
                 ),
                 // Swipe indicator image
-                Positioned(
-                  left: 0,
-                  bottom: 0,
-                  child: Visibility(
-                    visible: _isSwipingLeft,
-                    child: Image.asset(
-                      'assets/dislike.png',
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Visibility(
-                    visible: _isSwipingRight,
-                    child: Image.asset(
-                      'assets/like.png',
-                      width: 100,
-                      height: 100,
-                    ),
-                  ),
-                ),
+           Positioned(
+  left: 0,
+  bottom: 0,
+  child: Visibility(
+    visible: _isSwipingLeft,
+    child: Image.asset(
+      'assets/dislike.png',
+      width: 100,
+      height: 100,
+    ),
+  ),
+),
+Positioned(
+  right: 0,
+  bottom: 0,
+  child: Visibility(
+    visible: _isSwipingRight,
+    child: Image.asset(
+      'assets/like.png',
+      width: 100,
+      height: 100,
+    ),
+  ),
+),
               ],
             ),
           ),

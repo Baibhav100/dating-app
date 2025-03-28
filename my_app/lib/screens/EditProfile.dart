@@ -1,210 +1,148 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:path/path.dart' as p;
 
-class EditProfileScreen extends StatefulWidget {
+String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
+
+class EditProfileScreen  extends StatefulWidget {
   @override
-  _EditProfileScreenState createState() => _EditProfileScreenState();
+  _EditProfileScreenState  createState() => _EditProfileScreenState ();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
-  final String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
+class _EditProfileScreenState  extends State<EditProfileScreen> {
   Map<String, dynamic>? userProfile;
-  List<String> userInterests = [];
   Map<int, String> allInterests = {};
+  List<String> userInterests = [];
   bool isLoading = true;
-
-  late TextEditingController _nameController;
-  late TextEditingController _bioController;
-  late TextEditingController _genderController;
-  late TextEditingController _dobController;
-
-  File? _profileImage;
-  File? _coverImage;
+  List<File> _images = [];
+  List<String> _descriptions = [];
+  int _userProfileId = 1; // Replace with the actual user profile ID
+  final ImagePicker _picker = ImagePicker();
+  List<Map<String, dynamic>> _galleryImages = []; // Store full gallery items
+  bool _isLoadingImages = false;
+  
 
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
-    _fetchUserProfile();
+    fetchUserProfile();
+    _fetchUserImages();
   }
 
-  void _initializeControllers() {
-    _nameController = TextEditingController();
-    _bioController = TextEditingController();
-    _genderController = TextEditingController();
-    _dobController = TextEditingController();
-  }
-
-  Future<String?> _getAccessToken() async {
+  Future<String?> getAccessToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('access_token');
   }
 
-  Future<void> _fetchUserProfile() async {
-    final accessToken = await _getAccessToken();
+  Future<void> _fetchUserImages() async {
+    setState(() {
+      _isLoadingImages = true;
+    });
 
-    if (accessToken == null) {
-      _showErrorSnackBar('Authentication required. Please log in.');
+    const String url = 'http://192.168.1.241:8000/auth/user-gallery/';
+    final String? token = await getAccessToken(); // Your existing token method
+
+    if (token == null || token.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Access token is missing.')),
+      );
+      setState(() { _isLoadingImages = false; });
       return;
     }
 
     try {
       final response = await http.get(
-        Uri.parse('$baseurl/auth/my-profile/'),
+        Uri.parse(url),
         headers: {
+          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
         },
       );
 
       if (response.statusCode == 200) {
+        final List<dynamic> imagesJson = jsonDecode(response.body);
         setState(() {
-          userProfile = json.decode(response.body);
-          _nameController.text = userProfile?['name'] ?? '';
-          _bioController.text = userProfile?['bio'] ?? '';
-          _genderController.text = userProfile?['gender'] ?? '';
-          _dobController.text = userProfile?['date_of_birth'] ?? '';
-        });
-        _fetchInterests();
-      } else {
-        _showErrorSnackBar('Error fetching profile: ${response.body}');
-      }
-    } catch (e) {
-      _showErrorSnackBar('An error occurred: $e');
-    }
-  }
-
-  Future<void> _fetchInterests() async {
-    final accessToken = await _getAccessToken();
-
-    if (accessToken == null) {
-      _showErrorSnackBar('Access token is missing.');
-      return;
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse('$baseurl/auth/interests/'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $accessToken',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        List<dynamic> interestsData = json.decode(response.body);
-
-        setState(() {
-          allInterests = {for (var interest in interestsData) interest['id']: interest['name']};
-          userInterests = userProfile!['interests']
-              .map<String>((id) => allInterests[id] ?? 'Unknown')
-              .toList();
-          isLoading = false;
+          _galleryImages = imagesJson.cast<Map<String, dynamic>>();
+          _isLoadingImages = false;
         });
       } else {
-        _showErrorSnackBar('Error fetching interests');
+        print('Failed to load images: ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load images: ${response.body}')),
+        );
+        setState(() { _isLoadingImages = false; });
       }
     } catch (e) {
-      _showErrorSnackBar('An error occurred while fetching interests.');
-    }
-  }
-
-  Future<void> _pickProfileImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
-    }
-  }
-
-  Future<void> _pickCoverImage() async {
-    final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _coverImage = File(pickedFile.path);
-      });
-    }
-  }
-
-  Future<void> _updateProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    final accessToken = await _getAccessToken();
-    if (accessToken == null) {
-      _showErrorSnackBar('Authentication required. Please log in.');
-      return;
-    }
-
-    try {
-      // Prepare multipart request for profile update
-      var request = http.MultipartRequest(
-        'POST', 
-        Uri.parse('$baseurl/auth/update_profile/')
+      print('Error fetching images: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching images: $e')),
       );
-
-      // Add headers
-      request.headers['Authorization'] = 'Bearer $accessToken';
-
-      // Add text fields
-      request.fields['name'] = _nameController.text.trim();
-      request.fields['bio'] = _bioController.text.trim();
-      request.fields['gender'] = _genderController.text.trim();
-      request.fields['date_of_birth'] = _dobController.text.trim();
-
-      // Add profile image if selected
-      if (_profileImage != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'profile_picture', 
-            _profileImage!.path
-          )
-        );
-      }
-
-      // Add cover image if selected
-      if (_coverImage != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'cover_picture', 
-            _coverImage!.path
-          )
-        );
-      }
-
-      // Send the request
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        _showErrorSnackBar('Profile updated successfully');
-        Navigator.pop(context, true);
-      } else {
-        _showErrorSnackBar('Failed to update profile: $responseBody');
-      }
-    } catch (e) {
-      _showErrorSnackBar('Error updating profile: $e');
+      setState(() { _isLoadingImages = false; });
     }
   }
 
-  void _showErrorSnackBar(String message) {
+  Future<void> fetchUserProfile() async {
+    final accessToken = await getAccessToken();
+
+    if (accessToken != null && accessToken.isNotEmpty) {
+      try {
+        final response = await http.get(
+          Uri.parse('$baseurl/auth/my-profile/'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          setState(() {
+            userProfile = json.decode(response.body);
+            isLoading = false;
+          });
+        } else {
+          showErrorSnackBar('Error fetching profile: ${response.body}');
+        }
+      } catch (e) {
+        showErrorSnackBar('An error occurred: $e');
+      }
+    } else {
+      showErrorSnackBar('Access token is missing or invalid.');
+    }
+  }
+
+  void showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
 
+  Future<void> _pickImage() async {
+    if (_images.length >= 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You can upload up to 5 images only.')),
+      );
+      return;
+    }
+
+    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _images.add(File(pickedFile.path));
+        _descriptions.add(''); // Initialize description for the new image
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+     
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : userProfile != null
@@ -212,35 +150,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   slivers: [
                     // Profile Header with Cover Image and Profile Picture
                     SliverAppBar(
-                      expandedHeight: 400,
+                      expandedHeight: 250, // Reduced height
                       floating: false,
                       pinned: true,
                       backgroundColor: Colors.transparent,
-                      actions: [
-                        IconButton(
-                          icon: Icon(Icons.save, color: Colors.white),
-                          onPressed: _updateProfile,
-                        ),
-                      ],
                       flexibleSpace: FlexibleSpaceBar(
                         background: Stack(
                           fit: StackFit.expand,
                           children: [
                             // Cover Image with Hero animation
-                            GestureDetector(
-                              onTap: _pickCoverImage,
-                              child: _coverImage != null
-                                  ? Image.file(_coverImage!, fit: BoxFit.cover)
-                                  : userProfile!['cover_picture'] != null
-                                      ? Hero(
-                                          tag: 'cover_${userProfile!['id']}',
-                                          child: Image.network(
-                                            '$baseurl${userProfile!['cover_picture']}',
-                                            fit: BoxFit.cover,
-                                          ),
-                                        )
-                                      : Container(color: Colors.pinkAccent),
-                            ),
+                            if (userProfile!['cover_picture'] != null)
+                              Hero(
+                                tag: 'cover_${userProfile!['id']}',
+                                child: Image.network(
+                                  '$baseurl${userProfile!['cover_picture']}',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             // Multiple gradient overlays for better depth
                             Container(
                               decoration: BoxDecoration(
@@ -283,64 +209,120 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      GestureDetector(
-                                        onTap: _pickProfileImage,
+                                      // Profile picture with hero animation and progress indicator
+                                      Hero(
+                                        tag: 'profile_${userProfile!['id']}',
                                         child: Stack(
                                           children: [
-                                            CircleAvatar(
-                                              radius: 50,
-                                              backgroundColor: Colors.white,
-                                              backgroundImage: _profileImage != null
-                                                  ? FileImage(_profileImage!)
-                                                  : userProfile?['profile_picture'] != null
-                                                      ? NetworkImage('$baseurl${userProfile!['profile_picture']}')
-                                                      : null,
-                                              child: _profileImage == null && userProfile?['profile_picture'] == null
-                                                  ? Icon(Icons.person, size: 50, color: Colors.pinkAccent)
-                                                  : null,
+                                            Container(
+                                              width: 100,
+                                              height: 100,
+                                              child: CircularProgressIndicator(
+                                                value: (num.parse(userProfile!['profile_score'].toString())) / 100,
+                                                strokeWidth: 6,
+                                                backgroundColor: Colors.white,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFA2D2FF)),
+                                              ),
                                             ),
                                             Positioned(
-                                              bottom: 0,
-                                              right: 0,
+                                              top: 6,
+                                              left: 6,
+                                              right: 6,
+                                              bottom: 6,
                                               child: Container(
                                                 decoration: BoxDecoration(
-                                                  color: Colors.pinkAccent,
                                                   shape: BoxShape.circle,
+                                                  border: Border.all(color: Colors.white, width: 3),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black26,
+                                                      blurRadius: 10,
+                                                      spreadRadius: 2,
+                                                      offset: Offset(0, 2),
+                                                    ),
+                                                  ],
                                                 ),
-                                                child: Icon(
-                                                  Icons.edit, 
-                                                  color: Colors.white, 
-                                                  size: 20
-                                                ),
+                                            child: ClipOval(
+  child: GestureDetector(
+    onTap: () {
+      if (userProfile!['profile_picture'] != null) {
+        showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context), // Tap to close
+              child: Image.network(
+                '$baseurl${userProfile!['profile_picture']}',
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[300],
+                    child: Center(child: Text('Image failed to load')),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      }
+    },
+    child: Image(
+      image: userProfile!['profile_picture'] != null
+          ? NetworkImage('$baseurl${userProfile!['profile_picture']}')
+          : AssetImage('assets/placeholder.png') as ImageProvider,
+      fit: BoxFit.cover,
+    ),
+  ),
+),
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      SizedBox(width: 16),
+                                      SizedBox(width: 20),
                                       Expanded(
-                                        child: TextFormField(
-                                          controller: _nameController,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: 'Enter your name',
-                                            hintStyle: TextStyle(
-                                              color: Colors.white.withOpacity(0.7),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              userProfile!['name'] ?? 'No Name',
+                                              style: TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                                shadows: [
+                                                  Shadow(
+                                                    blurRadius: 10,
+                                                    color: Colors.black.withOpacity(0.5),
+                                                    offset: Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            border: UnderlineInputBorder(
-                                              borderSide: BorderSide(color: Colors.white),
+                                            SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.location_on,
+                                                    color: Colors.white.withOpacity(0.9), size: 16),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Location',
+                                                  style: TextStyle(
+                                                    color: Colors.white.withOpacity(0.9),
+                                                    fontSize: 16,
+                                                    shadows: [
+                                                      Shadow(
+                                                        blurRadius: 8,
+                                                        color: Colors.black.withOpacity(0.5),
+                                                        offset: Offset(0, 1),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            enabledBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(color: Colors.white),
-                                            ),
-                                            focusedBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(color: Colors.white, width: 2),
-                                            ),
-                                          ),
+                                          ],
                                         ),
                                       ),
                                     ],
@@ -352,23 +334,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ),
                     ),
-
                     // Profile Content
                     SliverToBoxAdapter(
                       child: Container(
                         padding: EdgeInsets.all(20),
-                        child: Form(
-                          key: _formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // About Section
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // About Section
+                            if (userProfile!['bio'] != null) ...[
                               Text(
                                 'About',
                                 style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  fontSize: 19,
+                                  color: const Color.fromARGB(221, 65, 63, 63),
                                 ),
                               ),
                               SizedBox(height: 12),
@@ -385,13 +364,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                     ),
                                   ],
                                 ),
-                                child: TextFormField(
-                                  controller: _bioController,
-                                  maxLines: 4,
-                                  decoration: InputDecoration(
-                                    hintText: 'Tell us about yourself...',
-                                    border: InputBorder.none,
-                                  ),
+                                child: Text(
+                                  userProfile!['bio'].toString(),
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: Colors.black87,
@@ -399,15 +373,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   ),
                                 ),
                               ),
-                              SizedBox(height: 24),
-
-                              // Interests Section
+                              SizedBox(height: 16),
+                   
+                            ],
+                            // Relationship Status and Looking For Section
+                            SizedBox(height: 24),
+                            // Interests Section
+                            if (userInterests.isNotEmpty) ...[
                               Text(
                                 'Interests',
                                 style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
+                                  fontSize: 19,
+                                  color: const Color.fromARGB(221, 65, 63, 63),
                                 ),
                               ),
                               SizedBox(height: 12),
@@ -418,11 +395,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   return Container(
                                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                     decoration: BoxDecoration(
-                                      color: Colors.pinkAccent.withOpacity(0.1),
+                                      color: const Color.fromARGB(255, 223, 219, 219).withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.pinkAccent.withOpacity(0.3),
-                                      ),
                                     ),
                                     child: Text(
                                       interest,
@@ -435,62 +409,79 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 }).toList(),
                               ),
                               SizedBox(height: 24),
-
-                              // Basic Info Section
-                              Text(
-                                'Basic Info',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              SizedBox(height: 12),
-                              Container(
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 10,
-                                      spreadRadius: 0,
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-                                    _buildEditableInfoRow(
-                                      icon: Icons.person, 
-                                      label: 'Gender', 
-                                      controller: _genderController
-                                    ),
-                                    Divider(height: 20),
-                                    _buildEditableInfoRow(
-                                      icon: Icons.cake, 
-                                      label: 'Birthday', 
-                                      controller: _dobController,
-                                      keyboardType: TextInputType.datetime,
-                                    ),
-                                    Divider(height: 20),
-                                    // Likes and Profile Score are typically read-only
-                                    _buildReadOnlyInfoRow(
-                                      icon: Icons.favorite, 
-                                      label: 'Likes', 
-                                      value: '${userProfile!['likes_received']}',
-                                    ),
-                                    Divider(height: 20),
-                                    _buildReadOnlyInfoRow(
-                                      icon: Icons.star, 
-                                      label: 'Profile Score', 
-                                      value: '${userProfile!['profile_score']}',
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ],
-                          ),
+                            // Basic Info Section
+                          Text(
+  'Basic Info',
+  style: TextStyle(
+    fontSize: 19,
+    fontWeight: FontWeight.bold, // Made the title bold for emphasis
+    color: const Color.fromARGB(221, 65, 63, 63),
+  ),
+),
+SizedBox(height: 12),
+Container(
+  padding: EdgeInsets.all(16),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 10,
+        spreadRadius: 0,
+      ),
+    ],
+  ),
+  child: Column(
+    children: [
+      _buildInfoRow(Icons.person, 'Gender', userProfile!['gender']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5), // Lighter and thinner divider
+      _buildInfoRow(Icons.cake, 'Birthday', userProfile!['date_of_birth']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.favorite, 'Likes', '${userProfile!['likes_received']}'),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.star, 'Profile Score', '${userProfile!['profile_score']}'),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.thumb_down, 'Dislikes', '${userProfile!['dislikes_received']}'),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.online_prediction, 'Status', userProfile!['is_active'] == true ? 'Online' : 'Offline'),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.favorite_border, 'Orientation', userProfile!['sexual_orientation']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.language, 'Language', userProfile!['language_spoken']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.psychology, 'Personality', userProfile!['personality_type']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.smoking_rooms, 'Smoking', userProfile!['smoking_habits']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.local_bar, 'Drinking', userProfile!['drinking_habits']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.favorite, 'Relationship Type', userProfile!['relationship_type']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.flag, 'Relationship Goal', userProfile!['relationship_goal']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.height, 'Height', '${userProfile!['height']} cm'),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.people, 'Relationship Status', userProfile!['relationship_status']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.family_restroom, 'Family Orientation', userProfile!['family_orientation']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.accessibility, 'Body Type', userProfile!['body_type']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.brush, 'Hair Color', userProfile!['hair_color']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.remove_red_eye, 'Eye Color', userProfile!['eye_color']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.school, 'Education', userProfile!['education_level']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.work, 'Occupation', userProfile!['occupation']),
+      Divider(height: 20, color: Colors.grey[300], thickness: 0.5),
+      _buildInfoRow(Icons.business, 'Industry', userProfile!['industry']),
+    ],
+  ),
+),
+                          ],
                         ),
                       ),
                     ),
@@ -500,91 +491,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildEditableInfoRow({
-    required IconData icon, 
-    required String label, 
-    required TextEditingController controller,
-    TextInputType? keyboardType,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.pinkAccent.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.pinkAccent, size: 20),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                ),
-              ),
-              TextFormField(
-                controller: controller,
-                keyboardType: keyboardType,
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Enter $label',
-                  border: InputBorder.none,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+Widget _buildInfoRow(IconData icon, String label, String value) {
+  Color iconColor = Colors.grey.shade600; // Default color
+  if (icon == Icons.favorite) {
+    iconColor = Colors.red; // Red heart for Likes
+  } else if (icon == Icons.star) {
+    iconColor = Colors.amber; // Gold star for Profile Score
   }
-
-  Widget _buildReadOnlyInfoRow({
-    required IconData icon, 
-    required String label, 
-    required String value,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.pinkAccent.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.pinkAccent, size: 20),
+  return Row(
+    children: [
+      Icon(icon, color: iconColor),
+      SizedBox(width: 10),
+      Expanded(
+        flex: 2,
+        child: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      Expanded(
+        flex: 3,
+        child: Text(
+          value,
+          style: TextStyle(color: Colors.grey[600]),
+          textAlign: TextAlign.right,
+          overflow: TextOverflow.ellipsis,
         ),
-        SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 }
+}
+
