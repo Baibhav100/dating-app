@@ -480,7 +480,7 @@ Future<void> _initializeBilling() async {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Colors.pinkAccent,
+                  color: const Color.fromARGB(255, 58, 57, 57),
                 ),
               ),
               SizedBox(height: 8),
@@ -708,24 +708,13 @@ Future<void> _initializeBilling() async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.white,
         title: Text(
           "Add Credits and Subscription Plans",
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+           
             fontSize: 18,
-            color: Colors.white,
-          ),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color.fromARGB(255, 97, 28, 161),
-                Colors.pinkAccent,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+           color: Color.fromARGB(255, 65, 64, 64),
           ),
         ),
         elevation: 10,
@@ -741,7 +730,7 @@ Future<void> _initializeBilling() async {
               children: [
                 Text(
                   'Active Plans:',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.pinkAccent),
+                  style: TextStyle(fontSize:15,color: const Color.fromARGB(255, 44, 44, 44)),
                 ),
                 SizedBox(height: 8),
                 _currentPlan != null && _currentPlan.isNotEmpty
@@ -761,7 +750,7 @@ Future<void> _initializeBilling() async {
                                 ).createShader(bounds),
                                 child: Text(
                                   plan['subscription_name'] ?? 'No Name',
-                                  style: TextStyle(color: Colors.white),
+                                  style: TextStyle(color: const Color.fromARGB(255, 95, 94, 94)),
                                 ),
                                 ),
                               subtitle: Text(
@@ -772,7 +761,7 @@ Future<void> _initializeBilling() async {
                           );
                         }).toList(),
                       )
-                    : Text(_currentPlanDetails, style: TextStyle(color: Colors.white)),
+                    : Text(_currentPlanDetails, style: TextStyle(color: const Color.fromARGB(255, 105, 104, 104))),
                 SizedBox(height: 20),
                 _buildPlanCard(
                   'Subscription Plans',

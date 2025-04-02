@@ -25,6 +25,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
 import 'notification.dart';
 import 'package:flutter_animated_dialog_updated/flutter_animated_dialog.dart';
+import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 
 String baseurl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
@@ -46,6 +48,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+typedef CardSwiperOnSwipe = void Function(int previousIndex, int currentIndex, CardSwiperDirection direction);
+
 class _HomePageState extends State<HomePage>with
 SingleTickerProviderStateMixin {
    late TabController _tabController;
@@ -53,7 +57,7 @@ SingleTickerProviderStateMixin {
   int _currentUserId=0;
   bool _isLoading = false;
   String? _error;
-  
+  bool isIncognitoModeEnabled=false;
   // Filter values
   double _age = 18;
   double _distance = 5;
@@ -62,16 +66,106 @@ SingleTickerProviderStateMixin {
   SharedPreferences? prefs;
   String? accessToken;
   String? refreshToken;
-   bool _isLikeOverlayVisible = false;
+bool _isSwipingRight = false;
+bool _isSwipingLeft = false;
 
   // Add variables to store user details
   String? _userName;
   String? _userEmail;
   String? _profilePicture;
   int? _creditScore;// Initialize with a default value
+    Map<int, String> allInterests = {};
 
   // Function to fetch matches from the API
 
+
+  // welcome bonus
+  bool _hasCheckedBonus = false; // New flag to track if bonus check has been done
+bool _showWelcomeBonusModal = false;
+bool _isCheckingBonus = true;
+bool _showGifAnimation = true;
+
+// .....................................................
+Future<void> _checkWelcomeBonus() async {
+  if (_hasCheckedBonus) return; // Exit early if already checked
+
+  setState(() {
+    _isCheckingBonus = true;
+  });
+
+  try {
+    final response = await _authenticatedRequest(
+      '$baseurl/auth/credit-logs/',
+      'GET',
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> creditLogs = json.decode(response.body);
+      bool hasWelcomeBonus = creditLogs.any((log) => log['reason'] == 'Welcome Bonus');
+
+      setState(() {
+        _showWelcomeBonusModal = !hasWelcomeBonus;
+        _isCheckingBonus = false;
+        _hasCheckedBonus = true; // Mark as checked
+      });
+    } else {
+      setState(() {
+        _isCheckingBonus = false;
+        _hasCheckedBonus = true; // Mark as checked even on failure
+      });
+      print('Failed to check welcome bonus: ${response.statusCode}');
+    }
+  } catch (e) {
+    setState(() {
+      _isCheckingBonus = false;
+      _hasCheckedBonus = true; // Mark as checked even on failure
+    });
+    print('Error checking welcome bonus: $e');
+  }
+}
+
+
+Future<void> _claimWelcomeBonus() async {
+  if (_currentUserId == 0) {
+    print('User ID is not loaded yet');
+    return;
+  }
+
+  try {
+    final response = await _authenticatedRequest(
+      '$baseurl/auth/add-welcome-bonus/',
+      'POST',
+      body: jsonEncode({'user_id': _currentUserId}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = json.decode(response.body);
+      print(data['message']);
+
+      // Update credit score
+      await _fetchCreditScore();
+      
+      // Hide the modal and mark as checked
+      setState(() {
+        _showWelcomeBonusModal = false;
+        _hasCheckedBonus = true;
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data['message'])),
+      );
+    } else {
+      print('Failed to claim welcome bonus: ${response.statusCode}');
+      print('Response body: ${response.body}');
+    }
+  } catch (e) {
+    print('Error claiming welcome bonus: $e');
+  }
+}
+
+
+// .........................................
 
 Future<void> _fetchMatches() async {
   setState(() {
@@ -270,6 +364,8 @@ Future<void> _fetchMatches() async {
 @override
 void initState() {
   super.initState();
+  fetchInterests();
+  _loadIncognitoMode();
   _tabController = TabController(length: 3, vsync: this);
 
   if (widget.accessToken != null && widget.refreshToken != null) {
@@ -279,20 +375,135 @@ void initState() {
     _loadTokens();
   }
 
-  _fetchUserDetails().then((_) {
-    _fetchMatches().then((_) {
-      _fetchCreditScore();
-    });
+  _fetchUserDetails().then((_) async {
+    await _fetchMatches();
+    await _fetchCreditScore();
+    await _checkWelcomeBonus(); // Check welcome bonus after user details are loaded
   });
   fetchCurrentUserId();
 }
 
-  @override
-  void dispose() {
-    _tabController.dispose(); // Properly dispose of the TabController
-    super.dispose();
+  // incognito mode
+Future<void> _loadIncognitoMode() async {
+  try {
+    final accessToken = await _getAccessToken();
+    if (accessToken == null) {
+      throw Exception('Access token not found');
+    }
+    bool incognitoActive = await checkIncognitoMode(accessToken);
+    setState(() {
+      isIncognitoModeEnabled = incognitoActive;
+    });
+  } catch (error) {
+    print('Error loading incognito mode: $error');
   }
+}
+// checking the incognito mode
+Future<bool> checkIncognitoMode(String accessToken) async {
+  final response = await http.get(
+    Uri.parse('http://192.168.1.241:8000/auth/incognito/'),
+    headers: {
+      'Authorization': 'Bearer $accessToken',
+    },
+  );
 
+  if (response.statusCode == 200) {
+    final data = json.decode(response.body);
+    return data['incognito_active'] ?? false;
+  } else {
+    throw Exception('Failed to load incognito mode status');
+  }
+}
+
+// update the incognito mode
+Future<void> updateIncognitoMode(bool active, String accessToken, BuildContext context) async {
+  final response = await http.put(
+    Uri.parse('http://192.168.1.241:8000/auth/incognito/'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $accessToken',
+    },
+    body: json.encode({'active': active}),
+  );
+
+  if (response.statusCode == 403) {
+    final data = json.decode(response.body);
+    if (data['error'] == "You don't have incognito mode privileges in any of your active plans. Please upgrade.") {
+      // Show a popup to the user
+      _showSubscriptionRequiredDialog(context);
+    }
+  } else if (response.statusCode != 200) {
+    throw Exception('Failed to update incognito mode');
+  }
+}
+
+void _showSubscriptionRequiredDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) => AlertDialog(
+      backgroundColor: Colors.transparent, // Make the AlertDialog background transparent
+      content: Container(
+        width: double.maxFinite,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black87, // Darker color at the top
+              Colors.grey.shade800, // Lighter color at the bottom
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16), // Rounded corners
+        ),
+        
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 16), // Add some space at the top
+            Image.asset(
+    'assets/incognito.png',
+    color: const Color.fromARGB(255, 255, 255, 255),
+    width: 24,
+    height: 24,
+  ),
+            SizedBox(height: 16), // Add some space below the icon
+            Text(
+              'Subscription Required',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 16), // Add some space below the title
+            Text(
+              'You have not subscribed to any plans. Please subscribe in order to enable incognito mode.',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24), // Add some space below the content
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+            SizedBox(height: 16), // Add some space at the bottom
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -593,138 +804,160 @@ void _showSettingsBottomSheet(BuildContext context) {
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (context) {
-      return Container(
-        height: MediaQuery.of(context).size.height * 0.9 - MediaQuery.of(context).padding.bottom,
-        child: Scaffold(
-          appBar: AppBar(
-              leading: IconButton(
-            icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
-            onPressed: () => Navigator.pop(context),
-          ),
-                    title: Text(
-              'Discover Settings',
-              style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold), // Set the text color to primaryColor
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.9 - MediaQuery.of(context).padding.bottom,
+            child: Scaffold(
+              appBar: AppBar(
+                leading: IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                title: Text(
+                  'Discover Settings',
+                  style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+              ),
+              body: ListView(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.person, color: primaryColor),
+                    title: Text('Edit Profile', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditProfileScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.credit_card, color: primaryColor),
+                    title: Text('Add Credits', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AddCreditsScreen()),
+                      );
+                    },
+                  ),
+                  // ListTile(
+                  //   leading: Icon(Icons.favorite, color: primaryColor),
+                  //   title: Text('Likes & Matches', style: TextStyle(color: textColor)),
+                  //   onTap: () {
+                  //     // Navigate to Likes & Matches Screen
+                  //   },
+                  // ),
+                  ListTile(
+                    leading: Icon(Icons.people, color: primaryColor),
+                    title: Text('Preferences', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to Preferences Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.notifications,  color: Color(0xFFE91E63),),
+                    title: Text('Notification settings', style: TextStyle(color: textColor)),
+                    onTap: () {
+                     _showOptionBottomSheet(context, 'notifications'); // Navigate to Notifications Screen
+                    },
+                  ),
+                              ListTile(
+                  leading: Image.asset(
+                    'assets/incognito.png',
+                    color: primaryColor,
+                    width: 24,
+                    height: 24,
+                  ),
+                  title: Text('Incognito mode', style: TextStyle(color: textColor)),
+                  trailing: Switch(
+                    value: isIncognitoModeEnabled,
+                    onChanged: (bool value) async {
+                      try {
+                        // Fetch the current access token
+                        String? accessToken = await _getAccessToken();
+                        if (accessToken == null) {
+                          throw Exception('Access token not found');
+                        }
+                        // Update the incognito mode
+                        await updateIncognitoMode(value, accessToken, context);
+                        setState(() {
+                          isIncognitoModeEnabled = value;
+                        });
+                      } catch (error) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: ${error.toString()}')),
+                        );
+                      }
+                    },
+                    activeColor: primaryColor,
+                  ),
+                  onTap: () {
+                    // Navigate to Privacy Screen or handle tap action
+                  },
+                ),
+                  // Divider(),
+                  // ListTile(
+                  //   leading: Icon(Icons.person_search, color: primaryColor),
+                  //   title: Text('Looking For', style: TextStyle(color: textColor)),
+                  //   trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                  //   onTap: () {
+                  //     _showOptionBottomSheet(context, 'lookingFor');
+                  //     // Navigate to Looking For Screen
+                  //   },
+                  // ),
+                  // ListTile(
+                  //   leading: Icon(Icons.open_with, color: primaryColor),
+                  //   title: Text('Open To', style: TextStyle(color: textColor)),
+                  //   trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                  //   onTap: () {
+                  //     _showOptionBottomSheet(context, 'openTo');
+                  //   },
+                  // ),
+                  // // ListTile(
+                  // //   leading: Icon(Icons.language, color: primaryColor),
+                  // //   title: Text('Add Languages', style: TextStyle(color: textColor)),
+                  // //   trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
+                  // //   onTap: () {
+                  // //     _showOptionBottomSheet(context, 'addLanguages');
+                  // //   },
+                  // // ),
+                  // Divider(),
+                  ListTile(
+                    leading: Icon(Icons.help_outline, color: primaryColor),
+                    title: Text('Help & Support', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to Help & Support Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.info_outline, color: primaryColor),
+                    title: Text('About', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      // Navigate to About Screen
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.logout, color: Colors.redAccent),
+                    title: Text('Logout', style: TextStyle(color: textColor)),
+                    onTap: () {
+                      _logout();
+                    },
+                  ),
+                ],
+              ),
             ),
-            backgroundColor: const Color.fromARGB(255, 255, 255, 255), // White background
-          ),
-          body: ListView(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            children: [
-              ListTile(
-                leading: Icon(Icons.person, color: primaryColor),
-                title: Text('Edit Profile', style: TextStyle(color: textColor)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => EditProfileScreen(),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.credit_card, color: primaryColor),
-                title: Text('Add Credits', style: TextStyle(color: textColor)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => AddCreditsScreen()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.favorite, color: primaryColor),
-                title: Text('Likes & Matches', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Likes & Matches Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.people, color: primaryColor),
-                title: Text('Preferences', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Preferences Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.notifications, color: primaryColor),
-                title: Text('Notifications', style: TextStyle(color: textColor)),
-                onTap: () {
-                 
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.privacy_tip, color: primaryColor),
-                title: Text('Privacy', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Privacy Screen
-                },
-              ),
-                   ListTile(
-                leading: Icon(Icons.privacy_tip, color: primaryColor),
-                title: Text('Privacy', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Privacy Screen
-                },
-              ),
-              Divider(),
-                 ListTile(
-                leading: Icon(Icons.person_search, color: primaryColor),
-                title: Text('Looking For', style: TextStyle(color: textColor)),
-                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                onTap: () {
-                
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.open_with, color: primaryColor),
-                title: Text('Open To', style: TextStyle(color: textColor)),
-                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                onTap: () {
-                  _showOptionBottomSheet(context, 'openTo');
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.language, color: primaryColor),
-                title: Text('Add Languages', style: TextStyle(color: textColor)),
-                trailing: Icon(Icons.arrow_forward_ios, color: primaryColor),
-                onTap: () {
-                  _showOptionBottomSheet(context, 'addLanguages');
-                },
-              ),
-              Divider(),
-              ListTile(
-                leading: Icon(Icons.help_outline, color: primaryColor),
-                title: Text('Help & Support', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to Help & Support Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.info_outline, color: primaryColor),
-                title: Text('About', style: TextStyle(color: textColor)),
-                onTap: () {
-                  // Navigate to About Screen
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.logout, color: Colors.redAccent),
-                title: Text('Logout', style: TextStyle(color: textColor)),
-                onTap: () {
-                  _logout();
-                },
-              ),
-              // New ListTiles for Looking For, Open To, and Add Languages
-           
-            ],
-          ),
-        ),
+          );
+        },
       );
     },
   );
 }
-
 void _showOptionBottomSheet(BuildContext context, String option) {
   switch (option) {
     case 'lookingFor':
@@ -736,10 +969,153 @@ void _showOptionBottomSheet(BuildContext context, String option) {
     case 'addLanguages':
       _showAddLanguagesBottomSheet(context);
       break;
+    case 'notifications':
+      _showAddNotificationsBottomSheet(context);
+      break;
     default:
       // Handle unknown option
       break;
   }
+}
+bool  _enableNotifications=false;
+bool  _enableSound=false;
+bool  _enableVibration=false;
+bool  _enablePushNotifications=false;
+bool  _showNotificationsOnLockScreen=false;
+bool  _showRemindersOnLockScreen=false;
+bool  _allowNotificationsToPlaySounds=false;
+bool  _doNotDisturb=false;
+bool  _showPreviews=false;
+bool  _showNotificationBanners=false;
+bool  _showNotificationsInActionCenter=false;
+bool  _privateNotificationsInPublic=false;
+
+void _showAddNotificationsBottomSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SwitchListTile(
+              title: Text('Enable Notifications'),
+              value: _enableNotifications,
+              onChanged: (bool value) {
+                setState(() {
+                  _enableNotifications = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Sound'),
+              value: _enableSound,
+              onChanged: (bool value) {
+                setState(() {
+                  _enableSound = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Vibration'),
+              value: _enableVibration,
+              onChanged: (bool value) {
+                setState(() {
+                  _enableVibration = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Push Notifications'),
+              value: _enablePushNotifications,
+              onChanged: (bool value) {
+                setState(() {
+                  _enablePushNotifications = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Notifications on Lock Screen'),
+              value: _showNotificationsOnLockScreen,
+              onChanged: (bool value) {
+                setState(() {
+                  _showNotificationsOnLockScreen = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Reminders on Lock Screen'),
+              value: _showRemindersOnLockScreen,
+              onChanged: (bool value) {
+                setState(() {
+                  _showRemindersOnLockScreen = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Allow Notifications to Play Sounds'),
+              value: _allowNotificationsToPlaySounds,
+              onChanged: (bool value) {
+                setState(() {
+                  _allowNotificationsToPlaySounds = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Do Not Disturb'),
+              value: _doNotDisturb,
+              onChanged: (bool value) {
+                setState(() {
+                  _doNotDisturb = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Previews'),
+              value: _showPreviews,
+              onChanged: (bool value) {
+                setState(() {
+                  _showPreviews = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Notification Banners'),
+              value: _showNotificationBanners,
+              onChanged: (bool value) {
+                setState(() {
+                  _showNotificationBanners = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Show Notifications in Action Center'),
+              value: _showNotificationsInActionCenter,
+              onChanged: (bool value) {
+                setState(() {
+                  _showNotificationsInActionCenter = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              title: Text('Private Notifications in Public'),
+              value: _privateNotificationsInPublic,
+              onChanged: (bool value) {
+                setState(() {
+                  _privateNotificationsInPublic = value;
+                });
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 void _showLookingForBottomSheet(BuildContext context) {
@@ -879,56 +1255,53 @@ Widget _buildAnimatedIcon(IconData icon, int index) {
     ),
   );
 }
-
 Widget _buildMatchesScreen() {
-  return DefaultTabController(
-    length: 3, // Number of tabs
-    child: RefreshIndicator(
-      onRefresh: () => RefreshHelper.onMatchesRefresh(context),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Your Matches',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.pinkAccent,
-                ),
-              ),
-            ),
-            // TabBar for Matches, Likes, Who Liked Me
-            TabBar(
-              labelColor: Colors.pinkAccent,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.pinkAccent,
-              tabs: const [
-                Tab(text: 'Matches'),
-                Tab(text: 'Likes'),
-                Tab(text: 'Who Liked Me'),
-              ],
-            ),
-            // Tab content
-            Container(
-              height: 500, // Adjust height based on your content
-              child: TabBarView(
-                children: [
-                  _buildMatchesTabContent('matches'), // Matches tab
-                  _buildLikedTabContent('likes'), // Likes tab
-                  _buildWhoLikedMeTabContent('whoLikedMe'), // Who Liked Me tab
+  return Scaffold(
+    appBar: AppBar(
+
+      title: Text(
+        'Your Matches',
+        style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+      ),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    ),
+    body: DefaultTabController(
+      length: 3, // Number of tabs
+      child: RefreshIndicator(
+        onRefresh: () => RefreshHelper.onMatchesRefresh(context),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Header
+              // TabBar for Matches, Likes, Who Liked Me
+              TabBar(
+                labelColor: Colors.pinkAccent,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: Colors.pinkAccent,
+                tabs: const [
+                  Tab(text: 'Matches'),
+                  Tab(text: 'Likes'),
+                  Tab(text: 'Who Liked Me'),
                 ],
               ),
-            ),
-          ],
+              // Tab content
+              Container(
+                height: 500, // Adjust height based on your content
+                child: TabBarView(
+                  children: [
+                    _buildMatchesTabContent('matches'), // Matches tab
+                    _buildLikedTabContent('likes'), // Likes tab
+                    _buildWhoLikedMeTabContent('whoLikedMe'), // Who Liked Me tab
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
   );
 }
-
 // .....................................................................................................
 // Matches Section
 // ................................................................
@@ -1252,9 +1625,8 @@ Future<String> _fetchLikeViewStatus() async {
     return 'none'; // Default to none in case of an error
   }
 }
-
 Widget _buildWhoLikedMeTabContent(String tabType) {
-  return FutureBuilder<String>( 
+  return FutureBuilder<String>(
     future: _fetchLikeViewStatus(),
     builder: (context, likeViewSnapshot) {
       if (likeViewSnapshot.connectionState == ConnectionState.waiting) {
@@ -1262,6 +1634,7 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
       }
       
       final shouldBlurAll = likeViewSnapshot.data == 'blur';
+      print('Like view status: ${likeViewSnapshot.data}'); // Log like view status
 
       return FutureBuilder<List<Map<String, dynamic>>>(
         future: _fetchLikedByUsers(),
@@ -1269,6 +1642,7 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
+            print('Error fetching liked by users: ${snapshot.error}');
             return Center(
               child: Text(
                 'Error: ${snapshot.error}',
@@ -1276,16 +1650,30 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
               ),
             );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            print('No users have liked your profile');
             return const Center(
               child: Text('No one has liked your profile yet'),
             );
           } else {
             final likedByUsers = snapshot.data!;
+            print('Users who interacted with your profile (Total: ${likedByUsers.length}):');
+            
+            final superlikedUsers = likedByUsers.where((user) => user['swipe_type'] == 'superlike').toList();
+            final likedUsers = likedByUsers.where((user) => user['swipe_type'] == 'like').toList();
+            final allUsers = [...superlikedUsers, ...likedUsers];
+
+            for (var user in allUsers) {
+              print('User ID: ${user['swiper']}');
+              print('Username: ${user['swiper_username']}');
+              print('Interaction Type: ${user['swipe_type']}');
+              print('Timestamp: ${user['timestamp']}');
+            }
+
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              itemCount: likedByUsers.length,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              itemCount: allUsers.length,
               itemBuilder: (context, index) {
-                final user = likedByUsers[index];
+                final user = allUsers[index];
                 return FutureBuilder<Map<String, dynamic>>(
                   future: _fetchUserwholiked(user['swiper']),
                   builder: (context, userDetailsSnapshot) {
@@ -1306,83 +1694,174 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
                         ? 'http://192.168.1.241:8000${userDetails['profile_picture']}'
                         : null;
 
+                    print('Detailed info for user ${user['swiper_username']}:');
+                    print('Name: ${userDetails['name'] ?? 'N/A'}');
+                    print('Bio: ${userDetails['bio'] ?? 'N/A'}');
+                    print('Profile Picture URL: $profilePicUrl');
+
+                    final isSuperlike = user['swipe_type'] == 'superlike';
+
                     return GestureDetector(
                       onTap: shouldBlurAll ? null : () {
-                        _checkAndNavigateToProfile(
-                          context, 
-                          userDetails, 
-                          user['swiper']
-                        );
+                        _checkAndNavigateToProfile(context, userDetails, user['swiper']);
                       },
                       child: Card(
                         elevation: 4,
+                        shadowColor: Colors.black.withOpacity(0.1),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Stack(
-                            children: [
-                              CachedNetworkImage(
-                                imageUrl: profilePicUrl ?? '',
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => Container(
-                                  height: 200,
-                                  color: Colors.grey[200],
-                                  child: const Center(child: CircularProgressIndicator()),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width - 32, // Account for horizontal padding
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: isSuperlike
+                                  ? [Colors.blueGrey[50]!, Colors.blueGrey[100]!]
+                                  : [Colors.white, Colors.grey[50]!],
+                            ),
+                          ),
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Profile Image
+                                Container(
+                                  width: 100,
+                                  decoration: BoxDecoration(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      bottomLeft: Radius.circular(12),
+                                    ),
+                                    border: Border.all(
+                                      color: isSuperlike ? Colors.blueGrey[300]! : Colors.grey[300]!,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(11),
+                                      bottomLeft: Radius.circular(11),
+                                    ),
+                                    child: CachedNetworkImage(
+                                      imageUrl: profilePicUrl ?? '',
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(child: CircularProgressIndicator()),
+                                      ),
+                                      errorWidget: (context, url, error) => Container(
+                                        color: Colors.grey[200],
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 40,
+                                          color: Colors.grey[400],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                errorWidget: (context, url, error) => Container(
-                                  height: 200,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.person, size: 50),
-                                ),
-                              ),
-                              Positioned.fill(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  userDetails['name'] ?? user['swiper_username'],
-                                                  style: const TextStyle(
-                                                    fontSize: 20,
-                                                    fontWeight: FontWeight.bold,
+                                // User Info
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                userDetails['name'] ?? user['swiper_username'],
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.grey[900],
+                                                  letterSpacing: 0.2,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: isSuperlike ? Colors.blueGrey[600] : Colors.grey[600],
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    isSuperlike ? Icons.star : Icons.favorite,
+                                                    size: 14,
                                                     color: Colors.white,
                                                   ),
-                                                ),
-                                                if (userDetails['bio'] != null && !shouldBlurAll)
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 4),
-                                                    child: Text(
-                                                      userDetails['bio'],
-                                                      style: TextStyle(
-                                                        fontSize: 14,
-                                                        color: Colors.grey[200],
-                                                      ),
-                                                      maxLines: 2,
-                                                      overflow: TextOverflow.ellipsis,
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    isSuperlike ? 'Superlike' : 'Like',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.w500,
                                                     ),
                                                   ),
-                                              ],
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (userDetails['bio'] != null && !shouldBlurAll)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 6),
+                                            child: Text(
+                                              userDetails['bio'],
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[600],
+                                                height: 1.4,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          if (!shouldBlurAll)
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.favorite,
-                                                color: Colors.pinkAccent,
-                                                size: 32,
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 8),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.access_time,
+                                                size: 14,
+                                                color: Colors.grey[500],
                                               ),
+                                              const SizedBox(width: 4),
+                                              Flexible(
+                                                child: Text(
+                                                  ' ${_formatTimestamp(user['timestamp'])}',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[500],
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (!shouldBlurAll)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 8),
+                                            child: ElevatedButton(
                                               onPressed: () {
                                                 handleSwipe(
                                                   swipedUserId: user['swiper'],
@@ -1393,50 +1872,30 @@ Widget _buildWhoLikedMeTabContent(String tabType) {
                                                   SnackBar(
                                                     content: Text('You liked ${userDetails['name'] ?? user['swiper_username']} back!'),
                                                     backgroundColor: Colors.green,
+                                                    behavior: SnackBarBehavior.floating,
                                                   ),
                                                 );
                                               },
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Liked you on ${_formatTimestamp(user['timestamp'])}',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey[200],
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: isSuperlike ? Colors.blueGrey[700] : Colors.grey[700],
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(100, 36),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'Like Back',
+                                                style: TextStyle(fontSize: 14),
+                                              ),
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              if (shouldBlurAll)
-                                Positioned.fill(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                                    child: Container(
-                                      color: Colors.black.withOpacity(0.4),
-                                      child: const Center(
-                                        child: Text(
-                                          'Unlock to see details',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1670,89 +2129,282 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
 // Home tab with header
 Widget _buildHomeScreen() {
   return Scaffold(
-appBar: AppBar(
-  systemOverlayStyle: SystemUiOverlayStyle(
-    statusBarColor: Colors.white,
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark,
-  ),
-  backgroundColor: Colors.white, // Customize the background color
-  leading: Row(
-    mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
-    crossAxisAlignment: CrossAxisAlignment.center, // Center the children vertically
-    children: [
-      Container(
-        width: 36, // Reduced width to fit better
-        height: 36, // Reduced height to fit better
-        margin: EdgeInsets.all(3), // Reduced margin
-        child: ClipOval(
-          child: CircleAvatar(
-            radius: 18, // Adjusted radius to fit within the Container
-            backgroundImage: _profilePicture != null
-                ? NetworkImage('$baseurl$_profilePicture')
-                : null,
-          ),
-        ),
-      ),
-      SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
-      TweenAnimationBuilder<int>(
-        tween: IntTween(begin: 0, end: _creditScore ?? 0),
-        duration: const Duration(seconds: 2),
-        builder: (context, value, child) {
-          return Text(
-            '$value',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color.fromARGB(255, 112, 117, 120),
-            ),
-          );
-        },
-      ),
-    ],
-  ),
-  actions: [
-    IconButton(
-      icon: const Icon(Icons.filter_alt, color: Colors.pinkAccent, size: 20), // Add filter button
-      onPressed: _showFilterScreen,
-    ),
-    IconButton(
-      icon: Icon(Icons.notifications),
-      onPressed: () {
-        // Navigate to the NotificationScreen
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => NotificationScreen()),
-        );
-      },
-    ),
-    IconButton(
-      icon: Icon(Icons.settings),
-      onPressed: () {
-        _showSettingsBottomSheet(context);
-      },
-    ),
-  ],
-),
-    body: Column(
-       children: [
-        Expanded(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: 0,
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
+    appBar: AppBar(
+      backgroundColor: Colors.white,
+      leading: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            margin: EdgeInsets.all(3),
+            child: ClipOval(
+              child: CircleAvatar(
+                radius: 18,
+                backgroundImage: _profilePicture != null
+                    ? NetworkImage('$baseurl$_profilePicture')
+                    : null,
               ),
+            ),
+          ),
+          SizedBox(width: 6),
+          TweenAnimationBuilder<int>(
+            tween: IntTween(begin: 0, end: _creditScore ?? 0),
+            duration: const Duration(seconds: 2),
+            builder: (context, value, child) {
+              return Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color.fromARGB(255, 112, 117, 120),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.filter_alt, size: 20),
+          onPressed: _showFilterScreen,
+        ),
+        IconButton(
+          icon: Image.asset(
+            'assets/settings.png',
+            width: 20,
+            height: 20,
+          ),
+          onPressed: () {
+            _showSettingsBottomSheet(context);
+          },
+        )
+      ],
+    ),
+    body: Stack(
+      children: [
+        Column(
+          children: [
+            Expanded(
               child: _buildSuggestedMatches(),
             ),
-          ),
+          ],
         ),
+        if (_isCheckingBonus)
+          const Center(child: CircularProgressIndicator()),
+        // 添加背景遮罩层
+        if (_showWelcomeBonusModal)
+          AnimatedOpacity(
+            opacity: _showWelcomeBonusModal ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 500),
+            child: GestureDetector(
+              onTap: _closeWelcomeBonusModal, // 点击遮罩层关闭弹窗
+              child: Container(
+                color: Colors.black.withOpacity(0.5), // 半透明黑色背景
+              ),
+            ),
+          ),
+        // 弹窗
+        if (_showWelcomeBonusModal)
+          _buildWelcomeBonusModal(),
       ],
     ),
   );
 }
+Widget _buildWelcomeBonusModal() {
+  return Center(
+    child: AnimatedOpacity(
+      opacity: _showWelcomeBonusModal ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 500),
+      child: Transform.scale(
+        scale: _showWelcomeBonusModal ? 1.0 : 0.8,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: Colors.transparent,
+          contentPadding: EdgeInsets.zero,
+          content: SizedBox(
+            width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Stack(
+              children: [
+                // 弹窗内容
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF1B263B),
+                        const Color(0xFF4A5568),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 60), // 为图标和图片留出空间
+                        // const Icon(
+                        //   Icons.card_giftcard,
+                        //   size: 48,
+                        //   color: Colors.white,
+                        // ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Welcome Bonus!',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'You have a welcome bonus of 1000 credits waiting for you!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton(
+                          onPressed: _claimWelcomeBonuses,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(32),
+                              side: BorderSide(color: Colors.white, width: 1),
+                            ),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
+                          ),
+                          child: const Text(
+                            'Claim Bonus',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Limited time offer!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white54,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // 关闭按钮，部分在弹窗外面
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all(Colors.transparent),
+                      padding: MaterialStateProperty.all(EdgeInsets.zero),
+                      minimumSize: MaterialStateProperty.all(Size.zero),
+                    ),
+                    onPressed: _closeWelcomeBonusModal,
+                  ),
+                ),
+                // 添加图片，部分在弹窗外面
+                Positioned(
+                  top: 40, // 图片顶部位置
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Image.asset(
+                      'assets/money.png', // 替换为你的图片路径
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
+// 显示吐司消息的方法
+void _showToastMessage(BuildContext context) {
+  final snackBar = SnackBar(
+    content: Row(
+      children: [
+        const Icon(
+          Icons.check_circle_outline,
+          color: Colors.white,
+          size: 24,
+        ),
+        const SizedBox(width: 12),
+        const Text(
+          'Bonus claimed successfully!',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    ),
+    backgroundColor: Colors.green,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24),
+    ),
+    elevation: 8,
+    duration: const Duration(seconds: 2),
+  );
+
+  ScaffoldMessenger.of(context).showSnackBar(snackBar);
+}
+
+// 点击“Claim Bonus”按钮的方法
+void _claimWelcomeBonuses() {
+  // 这里可以添加你的逻辑，例如处理奖励领取
+  _claimWelcomeBonus(); // 先关闭弹窗
+  _showToastMessage(context); // 然后显示吐司消息
+}
+// 关闭弹窗的方法
+void _closeWelcomeBonusModal() {
+  setState(() {
+    _showWelcomeBonusModal = false;
+  });
+}
   Widget _buildVIPContent() {
     return BoostedProfilesScreen();
  
@@ -1837,62 +2489,14 @@ appBar: AppBar(
             context: context,
             builder: (BuildContext context) {
               return AlertDialog(
-                title: const Text(
-                  'Unlock Profiles', 
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold, 
-                    color: Colors.pinkAccent
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'To view full profiles, you need an active subscription.',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pinkAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Close the dialog
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddCreditsScreen(), // Navigate to subscription screen
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'View Subscription Plans',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                actions: [
+                title: Text('Unlock Profiles'), 
+                content: Text('To view full profiles, you need an active subscription.'),
+                actions: <Widget>[
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Text('OK'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
                   ),
                 ],
               );
@@ -1979,7 +2583,7 @@ Future<http.Response> handleSwipe({
 Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPressed) {
   return Container(
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: Colors.white, // White background color
       shape: BoxShape.circle,
       boxShadow: [
         BoxShadow(
@@ -1996,9 +2600,49 @@ Widget _buildActionButtons(Widget buttonChild, Color color, VoidCallback onPress
     ),
   );
 }
-// Call fetchCurrentUserId on the widget's initState
-  // Update the Suggested Matches section
+
+ void showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+Future<void> fetchInterests() async {
+   final accessToken = await _getAccessToken();
+
+  if (accessToken == null) {
+    showErrorSnackBar('Access token is missing.');
+    return;
+  }
+
+  try {
+    final response = await http.get(
+      Uri.parse('$baseurl/auth/interests/'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> interestsData = json.decode(response.body);
+
+      setState(() {
+        allInterests = {for (var interest in interestsData) interest['id']: interest['name']};
+      });
+    } else {
+      showErrorSnackBar('Error fetching interests');
+    }
+  } catch (e) {
+    showErrorSnackBar('An error occurred while fetching interests.');
+  }
+}
+// Call fetchCurrentUserId on the widget's initStat
 Widget _buildSuggestedMatches() {
+  // Remove duplicates
+  final uniqueMatches = Set.from(_matches.map((match) => match['user_id']));
+  _matches = _matches.where((match) => uniqueMatches.contains(match['user_id'])).toList();
+
   // Check if data is still loading
   if (_isLoading) {
     return Center(child: CircularProgressIndicator());
@@ -2030,353 +2674,356 @@ Widget _buildSuggestedMatches() {
       ),
     );
   }
+  print('_matches: $_matches');
 
   return Container(
-    padding: const EdgeInsets.all(16.0),
+    color: const Color.fromARGB(255, 247, 244, 246), // Use a single color for the background
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
         Expanded(
           child: SizedBox(
-            height: 500, // Increased height from 400 to 500
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height * 0.8, // 80% of the screen height
             child: Stack(
-              clipBehavior: Clip.none,
-              children: List.generate(_matches.length, (index) {
-                final match = _matches[index];
-                final profile = match['profile'];
-                final userId = match['user_id'];
+              children: [
+                CardSwiper(
+                  cards: List.generate(_matches.length, (index) {
+                    final match = _matches[index];
+                    final profile = match['profile'];
+                    final userId = match['user_id'];
+                    
 
-                return Dismissible(
-                  key: Key(userId.toString()),
-                  direction: DismissDirection.horizontal,
-                  onUpdate: (details) {
-                    if (details.direction == DismissDirection.startToEnd) {
-                      setState(() {
-                        _isLikeOverlayVisible = true;
-                      });
-                    } else {
-                      setState(() {
-                        _isLikeOverlayVisible = false;
-                      });
-                    }
-                  },
-                  onDismissed: (direction) async {
-                    if (_currentUserId != 0) {
-                      final isLiked = direction == DismissDirection.startToEnd;
-                      final swipeType = isLiked ? 'like' : 'dislike';
-
-                      try {
-                        await handleSwipe(
-                          swipeType: swipeType,
-                          swipedUserId: _currentUserId,
-                          swipedOnId: userId,
-                        );
-
-                        setState(() {
-                          _matches.removeAt(index);
-                        });
-
-                        print('$swipeType: ${profile['name']}');
-                      } catch (error) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: ${error.toString()}')),
-                        );
-                      }
-                    } else {
-                      print('Current user ID is not available');
-                    }
-                  },
-                  background: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Padding(
-                        padding: EdgeInsets.only(left: 20),
-                        child: Icon(Icons.favorite, color: Colors.green, size: 40),
-                      ),
-                    ),
-                  ),
-                  secondaryBackground: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: EdgeInsets.only(right: 20),
-                        child: Icon(Icons.close, color: Colors.red, size: 40),
-                      ),
-                    ),
-                  ),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    alignment: Alignment.topCenter,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(15),
-                        child: Image.network(
-                          '$baseurl${profile['profile_picture']}',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Image.asset(
-                            'assets/default_profile_picture.png',
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        alignment: Alignment.topCenter,
+                        children: [
+                          Image.network(
+                            '$baseurl${profile['profile_picture']}',
                             fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Image.asset(
+                              'assets/default_profile_picture.png',
+                              fit: BoxFit.cover,
+                            ),
                           ),
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 16,
-                        left: 16,
-                        child: GestureDetector(
-                          onTap: () {
-                            // Handle profile tap
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
+                          Container(
                             decoration: BoxDecoration(
-                              color: Colors.white24,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 70,
-                        left: 16,
-                        right: 16,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              profile['name'] ?? 'No Name',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.5,
-                                shadows: [
-                                  Shadow(
-                                    blurRadius: 10.0,
-                                    color: Colors.black45,
-                                    offset: Offset(1.0, 1.0),
-                                  ),
+                              borderRadius: BorderRadius.circular(15),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withOpacity(0.7),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Container(
-                              width: double.infinity,
-                              height: 2,
-                              color: Colors.white30,
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                            ),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on_outlined,
-                                  color: Colors.white70,
-                                  size: 16,
+                          ),
+                          Positioned(
+                            top: 16,
+                            left: 16,
+                            child: GestureDetector(
+                              onTap: () {
+                                // Handle profile tap
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white24,
+                                  shape: BoxShape.circle,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  profile['location'] ?? 'Location not specified',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white70,
-                                    fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
-                                  ),
+                                child: Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 24,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    Positioned(
-                          bottom: 0,
-                          left: 16,
-                          right: 16,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildActionButtons(
-                                Icon(Icons.close, color: Colors.red),
-                                Colors.red,
-                                () async {
-                                  if (_currentUserId != 0) {
-                                    await handleSwipe(
-                                      swipeType: 'dislike',
-                                      swipedUserId: _currentUserId,
-                                      swipedOnId: userId,
-                                    );
-                                    setState(() {
-                                      _matches.removeAt(index);
-                                    });
-                                  }
-                                },
                               ),
-                           _buildActionButtons(
-                              Image.asset('assets/star.png', width: 32, height: 32, color: Colors.blue),
-                              Colors.blue,
-                              () async {
-                                if (_currentUserId != 0) {
-                                  // Perform the superlike action
-                                  final response = await handleSwipe(
-                                    swipeType: 'superlike',
-                                    swipedUserId: _currentUserId,
-                                    swipedOnId: userId,
-                                  );
-
-                                  // Check if the response status is 200
-                                  if (response != null && response.statusCode == 200) {
-                                    // Show a popup indicating superlike
-                                    await showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text('Superlike!'),
-                                          content: Text('You have superliked ${profile['name']}'),
-                                          actions: <Widget>[
-                                            TextButton(
-                                              child: Text('OK'),
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-
-                                    // Remove the card from the list
-                                    setState(() {
-                                      _matches.removeAt(index);
-                                    });
-                                  } else if (response != null && response.statusCode == 403) {
-                                    // Show a popup indicating the user is not subscribed to any plans
-                            await showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  backgroundColor: Colors.black, // Dark theme background
-                                  title: Text(
-                                    'Subscription Required',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Image.asset(
-                                      //   'assets/subscription.png', // Replace with your image path
-                                      //   width: 100,
-                                      //   height: 100,
-                                      // ),
-                                      SizedBox(height: 16),
-                                      Text(
-                                        'You are not subscribed to any plans. Please get one.',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 16,
-                                        ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 46,
+                            left: 16,
+                            right: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  profile['name'] ?? 'No Name',
+                                  style: TextStyle(
+                                    fontSize: 29,
+                                    
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 10.0,
+                                        color: Colors.black45,
+                                        offset: Offset(1.0, 1.0),
                                       ),
                                     ],
                                   ),
-                                  actions: <Widget>[
-                                    TextButton(
-                                      child: Text(
-                                        'OK',
-                                        style: TextStyle(
-                                          color: Colors.blue,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
+                                ),
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  height: 2,
+                                  color: Colors.white30,
+                                  margin: const EdgeInsets.symmetric(vertical: 4),
+                                ),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.location_on_outlined,
+                                      color: Colors.white70,
+                                      size: 16,
                                     ),
+                                    const SizedBox(width: 4),
+                               Text(
+                                  match['distance_km'] != null ? match['distance_km'].toString() : 'Location not specified',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: const Color.fromARGB(179, 255, 255, 255),
+                                    fontStyle: profile['location'] == null ? FontStyle.italic : FontStyle.normal,
+                                  ),
+                                ),
                                   ],
-                                );
-                              },
-                            );
-                                  } else {
-                                    // Handle other status codes if necessary
-                                    print('Swipe action failed. Status: ${response?.statusCode}');
-                                  }
-                                }
-                              },
+                                ),
+                                const SizedBox(height: 6),
+                             Wrap(
+  spacing: 6,
+  children: (profile['interests'] as List<dynamic>?)
+      ?.map((interestId) => Chip(
+            label: Text(
+              allInterests[interestId] ?? 'Unknown',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.black, // Set the background color to black\
+            
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16), // Adjust the radius as needed
+              side: BorderSide.none, // Ensure there is no border
+            ),
+          ))
+      .toList() ??
+      [],
+)
+                              ],
                             ),
-                              _buildActionButtons(
-                                Icon(Icons.favorite, color: Colors.red),
-                                Colors.red,
-                                () async {
-                                  if (_currentUserId != 0) {
-                                    await handleSwipe(
-                                      swipeType: 'like',
-                                      swipedUserId: _currentUserId,
-                                      swipedOnId: userId,
-                                    );
-                                    setState(() {
-                                      _matches.removeAt(index);
-                                    });
-                                  }
-                                },
-                              ),
-                            ],
                           ),
+                        ],
+                      ),
+                    );
+                  }),
+
+   
+onSwipe: (int index, CardSwiperDirection direction) {
+  setState(() {
+    _isSwipingLeft = direction == CardSwiperDirection.left;
+    _isSwipingRight = direction == CardSwiperDirection.right;
+  });
+
+  if (direction == CardSwiperDirection.right) {
+    Fluttertoast.showToast(msg: '🔥', backgroundColor: Colors.white, fontSize: 28);
+    handleSwipe(
+      swipeType: 'like',
+      swipedUserId: _currentUserId,
+      swipedOnId: _matches[index]['user_id'],
+    );
+  } else if (direction == CardSwiperDirection.left) {
+    Fluttertoast.showToast(msg: '😖', backgroundColor: Colors.white, fontSize: 28);
+    handleSwipe(
+      swipeType: 'dislike',
+      swipedUserId: _currentUserId,
+      swipedOnId: _matches[index]['user_id'],
+    );
+  }
+
+  // Delay to hide the swipe indicators after a short time
+  Future.delayed(Duration(milliseconds: 300), () {
+    setState(() {
+      _isSwipingLeft = false;
+      _isSwipingRight = false;
+    });
+  });
+
+  setState(() {
+    _matches.removeAt(index);
+  });
+},
+                ),
+                // Buttons overlay
+                Positioned(
+                  bottom:0, // Adjust the position to partially overlap the cards
+                  left: 0,
+                  right: 0,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildActionButtons(
+                        Image.asset(
+                          'assets/dislike.png', // Replace with your close icon asset path
+                          width: 40, // Adjust the size as needed
+                          height: 40,
                         ),
-                                              // New Like Image Overlay
-                      Positioned(
-                        top: 0,
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return AnimatedOpacity(
-                              opacity: _isLikeOverlayVisible ? 1.0 : 0.0,
-                              duration: Duration(milliseconds: 300),
-                              child: Center(
-                                child: _isLikeOverlayVisible
-                                    ? Image.asset(
-                                        'assets/like.png',
-                                        width: constraints.maxWidth * 0.6,
-                                        height: constraints.maxHeight * 0.6,
-                                      )
-                                    : Container(),
-                              ),
+                        Colors.red,
+                        () async {
+                          if (_currentUserId != 0) {
+                            await handleSwipe(
+                              swipeType: 'dislike',
+                              swipedUserId: _currentUserId,
+                              swipedOnId: _matches.last['user_id'],
                             );
-                          },
+                            setState(() {
+                              _matches.removeLast();
+                            });
+                          }
+                        },
+                      ),
+                      _buildActionButtons(
+                        Image.asset(
+                          'assets/superlike.png',
+                          color: const Color.fromARGB(255, 191, 110, 216),
+                          width: 42,
+                          height: 42,
                         ),
+                        Colors.blue,
+                        () async {
+                          if (_currentUserId != 0) {
+                            // Perform the superlike action
+                            final response = await handleSwipe(
+                              swipeType: 'superlike',
+                              swipedUserId: _currentUserId,
+                              swipedOnId: _matches.last['user_id'],
+                            );
+
+                            // Check if the response status is 200
+                            if (response != null && response.statusCode == 200) {
+                              // Show a popup indicating superlike
+                              await showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    title: Text('Superlike!'),
+                                    content: Text('You have superliked ${_matches.last['profile']['name']}'),
+                                    actions: <Widget>[
+                                      TextButton(
+                                        child: Text('OK'),
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+
+                              // Remove the card from the list
+                              setState(() {
+                                _matches.removeLast();
+                              });
+                            } else if (response != null && response.statusCode == 403) {
+                              // Show a popup indicating the user is not subscribed to any plans
+                              await showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return AlertDialog(
+                                    backgroundColor: Colors.black, // Dark theme background
+                                    title: Text(
+                                      'Subscription Required',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(height: 16),
+                                        Text(
+                                          'You are not subscribed to any plans. Please get one.',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ],
+                                    ),  
+                                    actions: <Widget>[
+                                      TextButton(
+                                        child: Text(
+                                          'OK',
+                                          style: TextStyle(
+                                            color: Colors.blue,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                        },
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                            } else {
+                              // Handle other status codes if necessary
+                              print('Swipe action failed. Status: ${response?.statusCode}');
+                            }
+                          }
+                        },
+                      ),
+                      _buildActionButtons(
+                        Image.asset(
+                          'assets/likes.png',
+                          width: 40,
+                          height: 40,
+                        ),
+                        Colors.red,
+                        () async {
+                          if (_currentUserId != 0) {
+                            await handleSwipe(
+                              swipeType: 'like',
+                              swipedUserId: _currentUserId,
+                              swipedOnId: _matches.last['user_id'],
+                            );
+                            setState(() {
+                              _matches.removeLast();
+                            });
+                          }
+                        },
                       ),
                     ],
                   ),
-                );
-              }),
+                ),
+                // Swipe indicator image
+           Positioned(
+  left: 0,
+  bottom: 0,
+  child: Visibility(
+    visible: _isSwipingLeft,
+    child: Image.asset(
+      'assets/dislike.png',
+      width: 100,
+      height: 100,
+    ),
+  ),
+),
+Positioned(
+  right: 0,
+  bottom: 0,
+  child: Visibility(
+    visible: _isSwipingRight,
+    child: Image.asset(
+      'assets/like.png',
+      width: 100,
+      height: 100,
+    ),
+  ),
+),
+              ],
             ),
           ),
         ),
@@ -2384,8 +3031,6 @@ Widget _buildSuggestedMatches() {
     ),
   );
 }
-
-
 // Placeholder for Search tab
 Widget _buildSearchScreen() {
   return const Center(

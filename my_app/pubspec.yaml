@@ -38,6 +38,9 @@ dependencies:
   flutter_animated_dialog_updated: ^1.0.1
   firebase_messaging: ^14.6.7
   flutter_local_notifications: ^18.0.1
+  flutter_card_swiper: ^1.0.0
+  fluttertoast: ^8.1.1
+  pin_code_fields: ^8.0.1
 
 dev_dependencies:
   flutter_test:

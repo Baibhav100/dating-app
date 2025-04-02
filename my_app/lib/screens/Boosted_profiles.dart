@@ -106,9 +106,14 @@ class _BoostedProfilesScreenState extends State<BoostedProfilesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Boosted Profiles'),
+     appBar: AppBar(
+    
+      title: Text(
+        'Boosted Profiles',
+        style: TextStyle(color:Colors.pinkAccent, fontWeight: FontWeight.bold),
       ),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+    ),
       body: boostedProfiles.isEmpty
           ? Center(child: CircularProgressIndicator())
           : ListView.builder(
