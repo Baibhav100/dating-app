@@ -581,13 +581,13 @@ class PhoneLoginScreen extends StatelessWidget {
   }
 }
 
-class OtpVerificationScreen extends StatelessWidget {
-  final String value; // Email or identifier passed to this screen
-  final TextEditingController otpController = TextEditingController();
+  class OtpVerificationScreen extends StatelessWidget {
+    final String value; // Email or identifier passed to this screen
+    final TextEditingController otpController = TextEditingController();
 
-  OtpVerificationScreen({required this.value});
+    OtpVerificationScreen({required this.value});
 
-  Future<void> verifyOtp(BuildContext context) async {
+      Future<void> verifyOtp(BuildContext context) async {
     try {
       String baseUrl = dotenv.env['BASE_URL'] ?? 'http://default-url.com';
       final response = await http.post(
@@ -607,6 +607,7 @@ class OtpVerificationScreen extends StatelessWidget {
             final prefs = await SharedPreferences.getInstance();
             await prefs.setString('access_token', accessToken);
             await prefs.setString('refresh_token', refreshToken);
+            await prefs.setString('username', value); // Store the username (email)
 
             // Fetch user details to check if the profile exists
             final userDetailsResponse = await http.get(
@@ -656,7 +657,6 @@ class OtpVerificationScreen extends StatelessWidget {
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

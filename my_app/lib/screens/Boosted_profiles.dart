@@ -107,10 +107,7 @@ class _BoostedProfilesScreenState extends State<BoostedProfilesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
      appBar: AppBar(
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
-        onPressed: () => Navigator.pop(context),
-      ),
+    
       title: Text(
         'Boosted Profiles',
         style: TextStyle(color:Colors.pinkAccent, fontWeight: FontWeight.bold),

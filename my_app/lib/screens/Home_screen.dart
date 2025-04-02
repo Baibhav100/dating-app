@@ -79,6 +79,94 @@ bool _isSwipingLeft = false;
   // Function to fetch matches from the API
 
 
+  // welcome bonus
+  bool _hasCheckedBonus = false; // New flag to track if bonus check has been done
+bool _showWelcomeBonusModal = false;
+bool _isCheckingBonus = true;
+bool _showGifAnimation = true;
+
+// .....................................................
+Future<void> _checkWelcomeBonus() async {
+  if (_hasCheckedBonus) return; // Exit early if already checked
+
+  setState(() {
+    _isCheckingBonus = true;
+  });
+
+  try {
+    final response = await _authenticatedRequest(
+      '$baseurl/auth/credit-logs/',
+      'GET',
+    );
+
+    if (response.statusCode == 200) {
+      List<dynamic> creditLogs = json.decode(response.body);
+      bool hasWelcomeBonus = creditLogs.any((log) => log['reason'] == 'Welcome Bonus');
+
+      setState(() {
+        _showWelcomeBonusModal = !hasWelcomeBonus;
+        _isCheckingBonus = false;
+        _hasCheckedBonus = true; // Mark as checked
+      });
+    } else {
+      setState(() {
+        _isCheckingBonus = false;
+        _hasCheckedBonus = true; // Mark as checked even on failure
+      });
+      print('Failed to check welcome bonus: ${response.statusCode}');
+    }
+  } catch (e) {
+    setState(() {
+      _isCheckingBonus = false;
+      _hasCheckedBonus = true; // Mark as checked even on failure
+    });
+    print('Error checking welcome bonus: $e');
+  }
+}
+
+
+Future<void> _claimWelcomeBonus() async {
+  if (_currentUserId == 0) {
+    print('User ID is not loaded yet');
+    return;
+  }
+
+  try {
+    final response = await _authenticatedRequest(
+      '$baseurl/auth/add-welcome-bonus/',
+      'POST',
+      body: jsonEncode({'user_id': _currentUserId}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = json.decode(response.body);
+      print(data['message']);
+
+      // Update credit score
+      await _fetchCreditScore();
+      
+      // Hide the modal and mark as checked
+      setState(() {
+        _showWelcomeBonusModal = false;
+        _hasCheckedBonus = true;
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(data['message'])),
+      );
+    } else {
+      print('Failed to claim welcome bonus: ${response.statusCode}');
+      print('Response body: ${response.body}');
+    }
+  } catch (e) {
+    print('Error claiming welcome bonus: $e');
+  }
+}
+
+
+// .........................................
+
 Future<void> _fetchMatches() async {
   setState(() {
     _isLoading = true; // Start loading
@@ -277,7 +365,7 @@ Future<void> _fetchMatches() async {
 void initState() {
   super.initState();
   fetchInterests();
-    _loadIncognitoMode();
+  _loadIncognitoMode();
   _tabController = TabController(length: 3, vsync: this);
 
   if (widget.accessToken != null && widget.refreshToken != null) {
@@ -287,20 +375,13 @@ void initState() {
     _loadTokens();
   }
 
-  _fetchUserDetails().then((_) {
-    _fetchMatches().then((_) {
-      _fetchCreditScore();
-    });
+  _fetchUserDetails().then((_) async {
+    await _fetchMatches();
+    await _fetchCreditScore();
+    await _checkWelcomeBonus(); // Check welcome bonus after user details are loaded
   });
   fetchCurrentUserId();
 }
-
-  @override
-  void dispose() {
-    _tabController.dispose(); // Properly dispose of the TabController
-    super.dispose();
-  }
-
 
   // incognito mode
 Future<void> _loadIncognitoMode() async {
@@ -1177,10 +1258,7 @@ Widget _buildAnimatedIcon(IconData icon, int index) {
 Widget _buildMatchesScreen() {
   return Scaffold(
     appBar: AppBar(
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back_ios, color: Colors.pinkAccent),
-        onPressed: () => Navigator.pop(context),
-      ),
+
       title: Text(
         'Your Matches',
         style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
@@ -2052,31 +2130,25 @@ Future<void> _deleteMatch(int matchId, BuildContext context) async {
 Widget _buildHomeScreen() {
   return Scaffold(
     appBar: AppBar(
-      // systemOverlayStyle: SystemUiOverlayStyle(
-      //   statusBarColor: const Color.fromARGB(255, 223, 203, 211),
-      //   statusBarIconBrightness: Brightness.dark,
-      //   systemNavigationBarColor: const Color.fromARGB(255, 223, 203, 211),
-      //   systemNavigationBarIconBrightness: Brightness.dark,
-      // ),
-      backgroundColor: Colors.white, // Customize the background color
+      backgroundColor: Colors.white,
       leading: Row(
-        mainAxisSize: MainAxisSize.min, // Ensure the row takes only the necessary space
-        crossAxisAlignment: CrossAxisAlignment.center, // Center the children vertically
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 36, // Reduced width to fit better
-            height: 36, // Reduced height to fit better
-            margin: EdgeInsets.all(3), // Reduced margin
+            width: 36,
+            height: 36,
+            margin: EdgeInsets.all(3),
             child: ClipOval(
               child: CircleAvatar(
-                radius: 18, // Adjusted radius to fit within the Container
+                radius: 18,
                 backgroundImage: _profilePicture != null
                     ? NetworkImage('$baseurl$_profilePicture')
                     : null,
               ),
             ),
           ),
-          SizedBox(width: 6), // Add some spacing between the profile picture and the credit value
+          SizedBox(width: 6),
           TweenAnimationBuilder<int>(
             tween: IntTween(begin: 0, end: _creditScore ?? 0),
             duration: const Duration(seconds: 2),
@@ -2095,27 +2167,13 @@ Widget _buildHomeScreen() {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.filter_alt, size: 20), // Add filter button
+          icon: const Icon(Icons.filter_alt, size: 20),
           onPressed: _showFilterScreen,
         ),
         IconButton(
           icon: Image.asset(
-            'assets/bell.png', // Replace with your notifications icon asset path
-            width: 20, // Adjust the size as needed
-            height: 20,
-          ),
-          onPressed: () {
-            // Navigate to the NotificationScreen
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => NotificationScreen()),
-            );
-          },
-        ),
-        IconButton(
-          icon: Image.asset(
-            'assets/settings.png', // Replace with your settings icon asset path
-            width: 20, // Adjust the size as needed
+            'assets/settings.png',
+            width: 20,
             height: 20,
           ),
           onPressed: () {
@@ -2124,16 +2182,229 @@ Widget _buildHomeScreen() {
         )
       ],
     ),
-    body: Column(
+    body: Stack(
       children: [
-        Expanded(
-          child: _buildSuggestedMatches(),
+        Column(
+          children: [
+            Expanded(
+              child: _buildSuggestedMatches(),
+            ),
+          ],
         ),
+        if (_isCheckingBonus)
+          const Center(child: CircularProgressIndicator()),
+        // 添加背景遮罩层
+        if (_showWelcomeBonusModal)
+          AnimatedOpacity(
+            opacity: _showWelcomeBonusModal ? 0.5 : 0.0,
+            duration: const Duration(milliseconds: 500),
+            child: GestureDetector(
+              onTap: _closeWelcomeBonusModal, // 点击遮罩层关闭弹窗
+              child: Container(
+                color: Colors.black.withOpacity(0.5), // 半透明黑色背景
+              ),
+            ),
+          ),
+        // 弹窗
+        if (_showWelcomeBonusModal)
+          _buildWelcomeBonusModal(),
       ],
     ),
   );
 }
+Widget _buildWelcomeBonusModal() {
+  return Center(
+    child: AnimatedOpacity(
+      opacity: _showWelcomeBonusModal ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 500),
+      child: Transform.scale(
+        scale: _showWelcomeBonusModal ? 1.0 : 0.8,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: Colors.transparent,
+          contentPadding: EdgeInsets.zero,
+          content: SizedBox(
+            width: double.infinity,
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: Stack(
+              children: [
+                // 弹窗内容
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF1B263B),
+                        const Color(0xFF4A5568),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 60), // 为图标和图片留出空间
+                        // const Icon(
+                        //   Icons.card_giftcard,
+                        //   size: 48,
+                        //   color: Colors.white,
+                        // ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Welcome Bonus!',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.2,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'You have a welcome bonus of 1000 credits waiting for you!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 32),
+                        ElevatedButton(
+                          onPressed: _claimWelcomeBonuses,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 32),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(32),
+                              side: BorderSide(color: Colors.white, width: 1),
+                            ),
+                            elevation: 0,
+                            shadowColor: Colors.transparent,
+                          ),
+                          child: const Text(
+                            'Claim Bonus',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Limited time offer!',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white54,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // 关闭按钮，部分在弹窗外面
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                    style: ButtonStyle(
+                      backgroundColor: MaterialStateProperty.all(Colors.transparent),
+                      padding: MaterialStateProperty.all(EdgeInsets.zero),
+                      minimumSize: MaterialStateProperty.all(Size.zero),
+                    ),
+                    onPressed: _closeWelcomeBonusModal,
+                  ),
+                ),
+                // 添加图片，部分在弹窗外面
+                Positioned(
+                  top: 40, // 图片顶部位置
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Image.asset(
+                      'assets/money.png', // 替换为你的图片路径
+                      width: 100,
+                      height: 100,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
+// 显示吐司消息的方法
+void _showToastMessage(BuildContext context) {
+  final snackBar = SnackBar(
+    content: Row(
+      children: [
+        const Icon(
+          Icons.check_circle_outline,
+          color: Colors.white,
+          size: 24,
+        ),
+        const SizedBox(width: 12),
+        const Text(
+          'Bonus claimed successfully!',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    ),
+    backgroundColor: Colors.green,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24),
+    ),
+    elevation: 8,
+    duration: const Duration(seconds: 2),
+  );
+
+  ScaffoldMessenger.of(context).showSnackBar(snackBar);
+}
+
+// 点击“Claim Bonus”按钮的方法
+void _claimWelcomeBonuses() {
+  // 这里可以添加你的逻辑，例如处理奖励领取
+  _claimWelcomeBonus(); // 先关闭弹窗
+  _showToastMessage(context); // 然后显示吐司消息
+}
+// 关闭弹窗的方法
+void _closeWelcomeBonusModal() {
+  setState(() {
+    _showWelcomeBonusModal = false;
+  });
+}
   Widget _buildVIPContent() {
     return BoostedProfilesScreen();
  
